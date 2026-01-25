@@ -21,15 +21,15 @@ def plusState(n: Int): Array[Complex] = {
 
 
 def getAt[T](arr: Array[T], index: Int): T =
-  exception::panicOn[OutOfBounds, T] { array::get(arr, index) }
+  exception::panicOn[OutOfBounds, T] { arr.get(index) }
 
 
 def setAt[T](arr: Array[T], index: Int, value: T): Unit =
-  exception::panicOn[OutOfBounds, Unit] { array::set(arr, index, value) }
+  exception::panicOn[OutOfBounds, Unit] { arr.set(index, value) }
 
 
 def applyGate(state: Array[Complex], qubit: Int, u00: Complex, u01: Complex, u10: Complex, u11: Complex): Unit = {
-  val size = array::size(state)
+  val size = state.size
   val stride = bitwiseShl(1, qubit)
   var base = 0
   while (base < size) {
@@ -78,7 +78,7 @@ def applyX(state: Array[Complex], qubit: Int): Unit =
 def applyZZ(state: Array[Complex], q1: Int, q2: Int, theta: Double): Unit = {
   val phaseSame = expI(theta / 2.0)
   val phaseDiff = expI(0.0 - (theta / 2.0))
-  val size = array::size(state)
+  val size = state.size
   var i = 0
   while (i < size) {
     val b1 = bitwiseAnd(bitwiseShr(i, q1), 1)
@@ -96,7 +96,7 @@ def applyZZ(state: Array[Complex], q1: Int, q2: Int, theta: Double): Unit = {
 
 def applyPredicatePhase(state: Array[Complex], gamma: Double) { predicate: Int => Bool }: Unit = {
   val phase = expI(0.0 - gamma)
-  val size = array::size(state)
+  val size = state.size
   var i = 0
   while (i < size) {
     if (predicate(i)) {
@@ -110,7 +110,7 @@ def applyPredicatePhase(state: Array[Complex], gamma: Double) { predicate: Int =
 
 def expectValue(state: Array[Complex]) { value: Int => Double }: Double = {
   var sum = 0.0
-  val size = array::size(state)
+  val size = state.size
   var i = 0
   while (i < size) {
     val prob = abs2(getAt(state, i))

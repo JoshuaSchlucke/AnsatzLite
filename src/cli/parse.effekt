@@ -138,10 +138,10 @@ def pow10(n: Int): Double = {
 }
 
 def toIntStrict(s: String): Int / Exception[WrongFormat] =
-  try { string::toInt(s) } with fail { () => wrongFormat("Invalid integer: '" ++ s ++ "'") }
+  try { s.toInt } with fail { () => wrongFormat("Invalid integer: '" ++ s ++ "'") }
 
 def parseDouble(raw: String): Double / Exception[WrongFormat] = {
-  val s = string::trim(raw)
+  val s = raw.trim
   if (s.length == 0) wrongFormat("Empty number")
 
   val neg = s.startsWith("-")
@@ -159,7 +159,7 @@ def parseDouble(raw: String): Double / Exception[WrongFormat] = {
       fracInt.toDouble / pow10(part.length)
     }
 
-  val parts = string::split(body, ".")
+  val parts = body.split(".")
   val value = parts match {
     case Cons(intStr, Nil()) =>
       intPart(intStr).toDouble
@@ -173,9 +173,9 @@ def parseDouble(raw: String): Double / Exception[WrongFormat] = {
 }
 
 def parseDoubleList(raw: String): List[Double] / Exception[WrongFormat] = {
-  val s = string::trim(raw)
+  val s = raw.trim
   if (s.length == 0) wrongFormat("Empty list")
-  string::split(s, ",").map { p => parseDouble(string::trim(p)) }
+  s.split(",").map { p => parseDouble(p.trim) }
 }
 
 // CLI parsing: --p N --gammas a,b --betas a,b --problem X --graph G --formula F

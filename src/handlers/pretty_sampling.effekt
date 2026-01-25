@@ -22,7 +22,7 @@ def withPrettySampling(shots: Int, seed: Int) { prog: => Double / {prepare, cost
   }
 
   var _out = 0.0
-  random::minstd(seed) {
+  seed.minstd {
     var qubits = 0
     var state: Array[Complex] = array(0, zero())
 
@@ -59,7 +59,7 @@ def withPrettySampling(shots: Int, seed: Int) { prog: => Double / {prepare, cost
         resume { {value} =>
           add("expect")
           val newSamples = sampleBitstrings(state, qubits, shots)
-          samples = list::append(samples, newSamples)
+          samples = samples.append(newSamples)
           0.0
         }
       }

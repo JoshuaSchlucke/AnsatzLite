@@ -25,7 +25,7 @@ def main() = mainSuite("Statevector backend") {
 
   test("plusState amplitudes") {
     val st = plusState(1)
-    assertEqual(array::size(st), 2)
+    assertEqual(st.size, 2)
     val amp0 = getAt(st, 0)
     val amp1 = getAt(st, 1)
     val expected = 1.0 / sqrt(2.0)

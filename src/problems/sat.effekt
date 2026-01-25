@@ -79,7 +79,7 @@ def kSatCyclic(numVars: Int, numClauses: Int, k: Int): Formula = {
 
 
 def toIntStrict(s: String): Int / Exception[WrongFormat] =
-  try { string::toInt(s) } with fail { () => wrongFormat("Invalid integer: '" ++ s ++ "'") }
+  try { s.toInt } with fail { () => wrongFormat("Invalid integer: '" ++ s ++ "'") }
 
 // Parse formula name: "tiny" or "k<k>-<m>[-<n>]".
 
@@ -87,7 +87,7 @@ def formulaFromName(name: String): Formula / Exception[WrongFormat] = {
   if (name == "tiny") tinyFormula()
   else if (name.startsWith("k")) {
     val body = name.substring(1)
-    val parts = string::split(body, "-")
+    val parts = body.split("-")
     parts match {
       case Cons(kStr, Cons(mStr, Cons(nStr, Nil()))) =>
         val k = toIntStrict(kStr)

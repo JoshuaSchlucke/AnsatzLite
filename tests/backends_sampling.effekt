@@ -14,7 +14,7 @@ def isBitstring(s: String, n: Int): Bool = {
     var ok = true
     var i = 0
     while (i < n) {
-      val c = string::unsafeCharAt(s, i)
+      val c = s.unsafeCharAt(i)
       if (c != '0' && c != '1') { ok = false }
       i = i + 1
     }

@@ -12,7 +12,7 @@ import src/qaoa/effects
 
 def sampleIndex(state: Array[Complex]): Int / random = {
   val r = random::randomDouble()
-  val size = array::size(state)
+  val size = state.size
   var acc = 0.0
   var chosen = -1
   var i = 0
@@ -55,7 +55,7 @@ def sampleBitstrings(state: Array[Complex], qubits: Int, shots: Int): List[Strin
 def withSampling(shots: Int, seed: Int) { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: List[String] = {
   var _out = 0.0
   var samples: List[String] = Nil()
-  random::minstd(seed) {
+  seed.minstd {
     var qubits = 0
     var state: Array[Complex] = array(0, zero())
 
@@ -86,7 +86,7 @@ def withSampling(shots: Int, seed: Int) { prog: => Double / {prepare, cost, cost
       with expect {
         resume { {value} =>
           val newSamples = sampleBitstrings(state, qubits, shots)
-          samples = list::append(samples, newSamples)
+          samples = samples.append(newSamples)
           0.0
         }
       }

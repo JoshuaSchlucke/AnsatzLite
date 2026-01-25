@@ -8,7 +8,7 @@ import src/cli/parse
 // Validate and normalize CLI config.
 
 def parseNoiseModel(model: String): (String, Double) / Exception[WrongFormat] =
-  string::split(model, ":") match {
+  model.split(":") match {
     case Cons("none", Nil()) => ("none", 0.0)
     case Cons("bitflip", Nil()) => ("bitflip", 0.05)
     case Cons("bitflip", Cons(pStr, Nil())) =>
@@ -23,8 +23,8 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
   case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, optInit, localSteps, localStep, localDecay, gammaMin, gammaMax, betaMin, betaMax, optVerbose, printConfig, numShots, noiseModel, _, seed) =>
     if (p <= 0) wrongFormat("p must be >= 1")
 
-    val gs = if (gammas.size == 0) list::fill(p, 0.0) else gammas
-    val bs = if (betas.size == 0) list::fill(p, 0.0) else betas
+    val gs = if (gammas.size == 0) p.fill(0.0) else gammas
+    val bs = if (betas.size == 0) p.fill(0.0) else betas
 
     if (gs.size != p) wrongFormat("gammas length must equal p")
     if (bs.size != p) wrongFormat("betas length must equal p")

@@ -73,8 +73,8 @@ def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) matc
 }
 
 def layersFromParams(params: List[Double], p: Int): List[Layer] = {
-  val gs = list::take(params, p)
-  val bs = list::drop(params, p)
+  val gs = params.take(p)
+  val bs = params.drop(p)
   buildLayers(gs, bs)
 }
 
@@ -127,16 +127,16 @@ def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
     case "grid" =>
       val res = gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val gs = list::take(res.params, cfg.p)
-        val bs = list::drop(res.params, cfg.p)
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
         println("opt=grid best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
       layersFromParams(res.params, cfg.p)
     case "random" =>
       val res = randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val gs = list::take(res.params, cfg.p)
-        val bs = list::drop(res.params, cfg.p)
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
         println("opt=random best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
       layersFromParams(res.params, cfg.p)
@@ -148,11 +148,11 @@ def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
           randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       val res = localSearch(cfg.p, init.params, cfg.localSteps, cfg.localStep, cfg.localDecay, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val initGs = list::take(init.params, cfg.p)
-        val initBs = list::drop(init.params, cfg.p)
+        val initGs = init.params.take(cfg.p)
+        val initBs = init.params.drop(cfg.p)
         println("opt=local init=" ++ cfg.optInit ++ " value=" ++ init.value.show ++ " gammas=" ++ showDoubleList(initGs) ++ " betas=" ++ showDoubleList(initBs))
-        val gs = list::take(res.params, cfg.p)
-        val bs = list::drop(res.params, cfg.p)
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
         println("opt=local best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
       layersFromParams(res.params, cfg.p)

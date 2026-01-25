@@ -10,7 +10,7 @@ import src/qaoa/effects
 
 def sampleIndex(state: Array[Complex]): Int / random = {
   val r = random::randomDouble()
-  val size = array::size(state)
+  val size = state.size
   var acc = 0.0
   var chosen = -1
   var i = 0
@@ -42,7 +42,7 @@ def sampleExpect(state: Array[Complex], shots: Int) { value: Int => Double }: Do
 
 def withShots(shots: Int, seed: Int) { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double = {
   var out = 0.0
-  random::minstd(seed) {
+  seed.minstd {
     var qubits = 0
     var state: Array[Complex] = array(0, zero())
 

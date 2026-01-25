@@ -30,7 +30,7 @@ def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: 
   def searchLayer(i: Int, gsAcc: List[Double], bsAcc: List[Double])
     : SearchResult = {
     if (i == p) {
-      val params = list::append(gsAcc.reverse, bsAcc.reverse)
+      val params = gsAcc.reverse.append(bsAcc.reverse)
       val value = objective(params)
       SearchResult(params, value)
     } else {
@@ -78,13 +78,13 @@ def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: D
       var bestParams = params
 
       if (up != cur) {
-        val cand = list::updateAt(params, i) { _ => up }
+        val cand = params.updateAt(i) { _ => up }
         val v = objective(cand)
         if (v > bestHere) { bestHere = v; bestParams = cand }
       }
 
       if (down != cur) {
-        val cand = list::updateAt(params, i) { _ => down }
+        val cand = params.updateAt(i) { _ => down }
         val v = objective(cand)
         if (v > bestHere) { bestHere = v; bestParams = cand }
       }
@@ -111,7 +111,7 @@ def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Do
   { objective: List[Double] => Double }
   : SearchResult = {
   var best = SearchResult(Nil(), -1000000000000.0)
-  random::minstd(seed) {
+  seed.minstd {
     var i = 0
     while (i < samples) {
       var gs: List[Double] = Nil()
@@ -124,7 +124,7 @@ def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Do
         bs = Cons(b, bs)
         j = j + 1
       }
-      val params = list::append(gs.reverse, bs.reverse)
+      val params = gs.reverse.append(bs.reverse)
       val value = objective(params)
       if (value > best.value) { best = SearchResult(params, value) }
       i = i + 1
