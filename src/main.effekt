@@ -73,6 +73,22 @@ def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
         println("opt=random best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
       layersFromParams(res.params, cfg.p)
+    case "local" =>
+      val init =
+        if (cfg.optInit == "grid")
+          gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+        else
+          randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      val res = localSearch(cfg.p, init.params, cfg.localSteps, cfg.localStep, cfg.localDecay, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val initGs = list::take(init.params, cfg.p)
+        val initBs = list::drop(init.params, cfg.p)
+        println("opt=local init=" ++ cfg.optInit ++ " value=" ++ init.value.show ++ " gammas=" ++ showDoubleList(initGs) ++ " betas=" ++ showDoubleList(initBs))
+        val gs = list::take(res.params, cfg.p)
+        val bs = list::drop(res.params, cfg.p)
+        println("opt=local best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
     case _ => buildLayers(cfg.gammas, cfg.betas)
   }
 }

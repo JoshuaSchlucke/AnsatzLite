@@ -48,6 +48,64 @@ def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: 
   searchLayer(0, Nil(), Nil())
 }
 
+def clamp(x: Double, lo: Double, hi: Double): Double =
+  if (x < lo) lo else if (x > hi) hi else x
+
+def getAt(xs: List[Double], index: Int, default: Double): Double = xs match {
+  case Nil() => default
+  case Cons(x, rest) => if (index == 0) x else getAt(rest, index - 1, default)
+}
+
+def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: Double, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  var params = init
+  var best = objective(params)
+  var step = step0
+  val total = p * 2
+  var round = 0
+  while (round < rounds) {
+    var improved = false
+    var i = 0
+    while (i < total) {
+      val cur = getAt(params, i, 0.0)
+      val lo = if (i < p) gammaMin else betaMin
+      val hi = if (i < p) gammaMax else betaMax
+      val up = clamp(cur + step, lo, hi)
+      val down = clamp(cur - step, lo, hi)
+
+      var bestHere = best
+      var bestParams = params
+
+      if (up != cur) {
+        val cand = list::updateAt(params, i) { _ => up }
+        val v = objective(cand)
+        if (v > bestHere) { bestHere = v; bestParams = cand }
+      }
+
+      if (down != cur) {
+        val cand = list::updateAt(params, i) { _ => down }
+        val v = objective(cand)
+        if (v > bestHere) { bestHere = v; bestParams = cand }
+      }
+
+      if (bestHere > best) {
+        best = bestHere
+        params = bestParams
+        improved = true
+      }
+
+      i = i + 1
+    }
+
+    if (not(improved)) {
+      step = step * decay
+    }
+    round = round + 1
+  }
+  SearchResult(params, best)
+}
+
 
 def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
   { objective: List[Double] => Double }

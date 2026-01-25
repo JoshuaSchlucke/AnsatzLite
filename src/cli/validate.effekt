@@ -20,7 +20,7 @@ def parseNoiseModel(model: String): (String, Double) / Exception[WrongFormat] =
 
 
 def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, _, seed) =>
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, optInit, localSteps, localStep, localDecay, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, _, seed) =>
     if (p <= 0) wrongFormat("p must be >= 1")
 
     val gs = if (gammas.size == 0) list::fill(p, 0.0) else gammas
@@ -49,7 +49,7 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
       wrongFormat("num-shots must be >= 1 for shots/sampling backend")
     }
 
-    if (opt != "none" && opt != "grid" && opt != "random") {
+    if (opt != "none" && opt != "grid" && opt != "random" && opt != "local") {
       wrongFormat("unknown optimizer: " ++ opt)
     }
 
@@ -57,9 +57,29 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
       wrongFormat("opt-steps must be >= 1")
     }
 
+    if (optInit != "grid" && optInit != "random") {
+      wrongFormat("unknown opt-init: " ++ optInit)
+    }
+
+    if (localSteps <= 0) {
+      wrongFormat("local-steps must be >= 1")
+    }
+
+    if (localStep <= 0.0) {
+      wrongFormat("local-step must be > 0")
+    }
+
+    if (localDecay <= 0.0 || localDecay >= 1.0) {
+      wrongFormat("local-decay must be in (0,1)")
+    }
+
     if (opt != "none" &&
         (backend == "sampling" || backend == "pretty" || backend == "pretty-sample" || backend == "pretty+sample")) {
       wrongFormat("optimizer requires numeric backend (statevector/shots/noisy)")
+    }
+
+    if (opt == "local" && (optInit != "grid" && optInit != "random")) {
+      wrongFormat("opt-init must be grid or random for local search")
     }
 
     if (gammaMin > gammaMax) {
@@ -76,5 +96,5 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
       wrongFormat("seed must be >= 0")
     }
 
-    Config(problem, graph, formula, p, gs, bs, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, nm, np, seed)
+    Config(problem, graph, formula, p, gs, bs, backend, opt, optSteps, optInit, localSteps, localStep, localDecay, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, nm, np, seed)
 }

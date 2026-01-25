@@ -57,4 +57,18 @@ def main() = mainSuite("Optimize search") {
     assertEqual(r1.params, r2.params)
     assertApprox(r1.value, r2.value, 0.000000001)
   }
+
+  test("localSearch does not get worse than init") {
+    val g = tinyGraph()
+
+    def objective(params: List[Double]): Double = params match {
+      case Cons(gamma, Cons(beta, Nil())) =>
+        withStatevector { executeMaxCut(ansatz([layer(gamma, beta)]), g) }
+      case _ => 0.0
+    }
+
+    val init = gridSearch(1, 2, 0.0, PI, 0.0, PI / 2.0) { objective }
+    val res = localSearch(1, init.params, 5, 0.05, 0.5, 0.0, PI, 0.0, PI / 2.0) { objective }
+    assertTrue(res.value >= init.value)
+  }
 }
