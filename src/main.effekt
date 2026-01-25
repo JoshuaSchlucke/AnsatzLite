@@ -23,6 +23,48 @@ import src/problems/sat
 
 // Build layers from parameter lists.
 
+def printHelp(): Unit = {
+  println("AnsatzLite CLI")
+  println("")
+  println("Usage:")
+  println("  ansatz [options]")
+  println("")
+  println("Core options:")
+  println("  --help                 Show this help text")
+  println("  --problem <name>        maxcut | mis | vertex-cover | sat")
+  println("  --p <int>               number of layers")
+  println("  --gammas <list>         comma-separated list (length p)")
+  println("  --betas <list>          comma-separated list (length p)")
+  println("")
+  println("Problem data:")
+  println("  --graph <name>          tiny | small | medium | large")
+  println("  --formula <name>        tiny | k<k>-<m>-<n>")
+  println("")
+  println("Backends:")
+  println("  --backend <name>        statevector | shots | noisy | sampling | pretty | pretty-sample | pretty+sample")
+  println("  --num-shots <int>       shots for shots/sampling backends")
+  println("  --noise-model <name>    none | bitflip[:p]")
+  println("  --seed <int>            RNG seed")
+  println("")
+  println("Optimization:")
+  println("  --opt <name>            none | grid | random | local")
+  println("  --opt-steps <int>       grid steps or random samples")
+  println("  --opt-init <name>       grid | random (for local search)")
+  println("  --local-steps <int>     number of local search rounds")
+  println("  --local-step <float>    initial coordinate step size")
+  println("  --local-decay <float>   step decay in (0,1)")
+  println("  --gamma-min <float>     search range lower bound")
+  println("  --gamma-max <float>     search range upper bound")
+  println("  --beta-min <float>      search range lower bound")
+  println("  --beta-max <float>      search range upper bound")
+  println("  --opt-verbose           print optimizer results")
+  println("")
+  println("Examples:")
+  println("  ansatz --problem maxcut --graph medium --p 1 --gammas 0.2 --betas 0.4")
+  println("  ansatz --problem sat --formula k3-10-6 --p 1 --gammas 0.2 --betas 0.4")
+  println("  ansatz --opt grid --opt-steps 5 --opt-verbose --p 1 --problem maxcut --graph tiny")
+}
+
 def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) match {
   case (Nil(), Nil()) => Nil()
   case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
@@ -131,58 +173,62 @@ def runAndPrint(cfg: Config) { program: () => Double / {prepare, cost, costEdge,
 
 def main() = {
   val argsList = args::commandLineArgs()
-  val cfgRes = result[Config, WrongFormat] { validateConfig(parseArgs(argsList)) }
+  if (argsList.any { a => a == "--help" || a == "-h" }) {
+    printHelp()
+  } else {
+    val cfgRes = result[Config, WrongFormat] { validateConfig(parseArgs(argsList)) }
 
-  cfgRes match {
-    case Success(cfg) =>
-      cfg.problem match {
-        case "maxcut" =>
-          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-          gRes match {
-            case Success(g) =>
-              val layers =
-                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
-              val a = ansatz(layers)
-              runAndPrint(cfg) { () => executeMaxCut(a, g) }
-            case Error(_, msg) => println("error: " ++ msg)
-          }
-        case "mis" =>
-          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-          gRes match {
-            case Success(g) =>
-              val layers =
-                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
-              val a = ansatz(layers)
-              runAndPrint(cfg) { () => executeMIS(a, g) }
-            case Error(_, msg) => println("error: " ++ msg)
-          }
-        case "vertex-cover" =>
-          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-          gRes match {
-            case Success(g) =>
-              val layers =
-                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
-              val a = ansatz(layers)
-              runAndPrint(cfg) { () => executeVertexCover(a, g) }
-            case Error(_, msg) => println("error: " ++ msg)
-          }
-        case "sat" =>
-          val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
-          fRes match {
-            case Success(f) =>
-              val layers =
-                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
-              val a = ansatz(layers)
-              runAndPrint(cfg) { () => executeMaxSat(a, f) }
-            case Error(_, msg) => println("error: " ++ msg)
-          }
-        case _ => ()
-      }
-    case Error(_, msg) =>
-      println("error: " ++ msg)
+    cfgRes match {
+      case Success(cfg) =>
+        cfg.problem match {
+          case "maxcut" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMaxCut(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "mis" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMIS(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "vertex-cover" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeVertexCover(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "sat" =>
+            val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
+            fRes match {
+              case Success(f) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMaxSat(a, f) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case _ => ()
+        }
+      case Error(_, msg) =>
+        println("error: " ++ msg)
+    }
   }
 }
