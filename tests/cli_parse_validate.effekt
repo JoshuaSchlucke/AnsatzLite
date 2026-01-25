@@ -99,7 +99,8 @@ def main() = mainSuite("CLI parsing + validation") {
         "--gamma-max", "1.2",
         "--beta-min", "0.2",
         "--beta-max", "0.8",
-        "--opt-verbose"
+        "--opt-verbose",
+        "--print-config"
       ]))
     }, "opt grid config")
     assertEqual(cfg.opt, "grid")
@@ -113,6 +114,7 @@ def main() = mainSuite("CLI parsing + validation") {
     assertApprox(cfg.betaMin, 0.2)
     assertApprox(cfg.betaMax, 0.8)
     assertEqual(cfg.optVerbose, true)
+    assertEqual(cfg.printConfig, true)
   }
 
   // CAREFUL: These tests where split because having too many in one test caused it to take too long to run.

@@ -21,7 +21,6 @@ import src/problems/mis
 import src/problems/vertex_cover
 import src/problems/sat
 
-// Build layers from parameter lists.
 
 def printHelp(): Unit = {
   println("AnsatzLite CLI")
@@ -35,6 +34,7 @@ def printHelp(): Unit = {
   println("  --p <int>               number of layers")
   println("  --gammas <list>         comma-separated list (length p)")
   println("  --betas <list>          comma-separated list (length p)")
+  println("  --print-config          print resolved config before running")
   println("")
   println("Problem data:")
   println("  --graph <name>          tiny | small | medium | large")
@@ -65,6 +65,7 @@ def printHelp(): Unit = {
   println("  ansatz --opt grid --opt-steps 5 --opt-verbose --p 1 --problem maxcut --graph tiny")
 }
 
+// Build layers from parameter lists.
 def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) match {
   case (Nil(), Nil()) => Nil()
   case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
@@ -89,6 +90,30 @@ def showDoubleList(xs: List[Double]): String = {
     }
   }
   out ++ "]"
+}
+
+def printConfig(cfg: Config): Unit = {
+  println("config:")
+  println("  problem=" ++ cfg.problem)
+  println("  graph=" ++ cfg.graph)
+  println("  formula=" ++ cfg.formula)
+  println("  p=" ++ cfg.p.show)
+  println("  gammas=" ++ showDoubleList(cfg.gammas))
+  println("  betas=" ++ showDoubleList(cfg.betas))
+  println("  backend=" ++ cfg.backend)
+  println("  numShots=" ++ cfg.numShots.show)
+  println("  noiseModel=" ++ cfg.noiseModel)
+  println("  noiseProb=" ++ cfg.noiseProb.show)
+  println("  seed=" ++ cfg.seed.show)
+  println("  opt=" ++ cfg.opt)
+  println("  optSteps=" ++ cfg.optSteps.show)
+  println("  optInit=" ++ cfg.optInit)
+  println("  localSteps=" ++ cfg.localSteps.show)
+  println("  localStep=" ++ cfg.localStep.show)
+  println("  localDecay=" ++ cfg.localDecay.show)
+  println("  gammaRange=[" ++ cfg.gammaMin.show ++ ", " ++ cfg.gammaMax.show ++ "]")
+  println("  betaRange=[" ++ cfg.betaMin.show ++ ", " ++ cfg.betaMax.show ++ "]")
+  println("  optVerbose=" ++ cfg.optVerbose.show)
 }
 
 def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
@@ -180,6 +205,7 @@ def main() = {
 
     cfgRes match {
       case Success(cfg) =>
+        if (cfg.printConfig) { printConfig(cfg) }
         cfg.problem match {
           case "maxcut" =>
             val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
