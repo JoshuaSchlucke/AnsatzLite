@@ -20,7 +20,7 @@
         effekt-lib = effekt-nix.lib.${system};
 
         ## Project configuration
-        pname = "AnsatzLite";         # package name
+        pname = "ansatz";         # package name
         version = "0.1.1";                 # package version
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
         testFiles = [
