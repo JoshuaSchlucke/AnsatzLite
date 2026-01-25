@@ -26,8 +26,11 @@
         testFiles = [
           "tests/core_primitives.effekt"
           "tests/backends_statevector.effekt"
-          "tests/problems_maxcut.effekt"
+          "tests/backends_sampling.effekt"
           "tests/backends_sampling_noise.effekt"
+          "tests/backends_pretty_print.effekt"
+          "tests/backends_pretty_sampling.effekt"
+          "tests/problems_maxcut.effekt"
           "tests/cli_parse_validate.effekt"
           "tests/problems_graph.effekt"
           "tests/problems_sat.effekt"

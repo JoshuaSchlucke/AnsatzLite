@@ -1,0 +1,49 @@
+module tests/backends_pretty_sampling
+
+import test
+import string
+import src/qaoa/types
+import src/problems/graph
+import src/problems/maxcut
+import src/handlers/pretty_sampling
+
+
+def isBitstring(s: String, n: Int): Bool = {
+  if (s.length != n) false
+  else {
+    var ok = true
+    var i = 0
+    while (i < n) {
+      val c = string::unsafeCharAt(s, i)
+      if (c != '0' && c != '1') { ok = false }
+      i = i + 1
+    }
+    ok
+  }
+}
+
+
+def allBitstrings(xs: List[String], n: Int): Bool = {
+  var ok = true
+  xs.foreach { s =>
+    if (not(isBitstring(s, n))) { ok = false }
+  }
+  ok
+}
+
+
+def main() = mainSuite("Pretty + sampling backend") {
+  test("collects structure and samples") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.0, 0.0)])
+    val ps = withPrettySampling(10, 7) { executeMaxCut(a, g) }
+    assertEqual(ps.lines, [
+      "prepare 2",
+      "costEdge 0 0 1 1",
+      "mixer 0",
+      "expect"
+    ])
+    assertEqual(ps.samples.size, 10)
+    assertTrue(allBitstrings(ps.samples, 2))
+  }
+}

@@ -41,12 +41,12 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
       if (graph != "tiny") wrongFormat("only graph 'tiny' is supported")
     }
 
-    if (backend != "statevector" && backend != "shots" && backend != "noisy") {
+    if (backend != "statevector" && backend != "shots" && backend != "noisy" && backend != "sampling" && backend != "pretty" && backend != "pretty-sample" && backend != "pretty+sample") {
       wrongFormat("unknown backend: " ++ backend)
     }
 
-    if (backend == "shots" && numShots <= 0) {
-      wrongFormat("num-shots must be >= 1 for shots backend")
+    if ((backend == "shots" || backend == "sampling" || backend == "pretty-sample" || backend == "pretty+sample") && numShots <= 0) {
+      wrongFormat("num-shots must be >= 1 for shots/sampling backend")
     }
 
     val (nm, np) = parseNoiseModel(noiseModel)

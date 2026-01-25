@@ -10,6 +10,9 @@ import src/qaoa/effects
 import src/handlers/statevector
 import src/handlers/shot_based
 import src/handlers/noise
+import src/handlers/sampling
+import src/handlers/pretty_print
+import src/handlers/pretty_sampling
 import src/problems/graph
 import src/problems/maxcut
 import src/problems/mis
@@ -33,6 +36,31 @@ def runWithBackend(cfg: Config) { program: () => Double / {prepare, cost, costEd
     case _ => 0.0
   }
 
+def runAndPrint(cfg: Config) { program: () => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: Unit =
+  cfg.backend match {
+    case "sampling" =>
+      val samples = withSampling(cfg.numShots, cfg.seed) { program() }
+      samples.foreach { s => println(s) }
+    case "pretty-sample" =>
+      val ps = withPrettySampling(cfg.numShots, cfg.seed) { program() }
+      println("pretty:")
+      ps.lines.foreach { l => println(l) }
+      println("samples:")
+      ps.samples.foreach { s => println(s) }
+    case "pretty+sample" =>
+      val ps = withPrettySampling(cfg.numShots, cfg.seed) { program() }
+      println("pretty:")
+      ps.lines.foreach { l => println(l) }
+      println("samples:")
+      ps.samples.foreach { s => println(s) }
+    case "pretty" =>
+      val lines = withPrettyPrint { program() }
+      lines.foreach { l => println(l) }
+    case _ =>
+      val out = runWithBackend(cfg) { program() }
+      println("result=" ++ out.show)
+  }
+
 // MVP entrypoint: parse args and run a problem instance.
 
 def main() = {
@@ -44,25 +72,24 @@ def main() = {
       val layers = buildLayers(cfg.gammas, cfg.betas)
       val a = ansatz(layers)
 
-      val out = cfg.problem match {
+      cfg.problem match {
         case "maxcut" =>
           val g = tinyGraph()
-          runWithBackend(cfg) { () => executeMaxCut(a, g) }
+          runAndPrint(cfg) { () => executeMaxCut(a, g) }
         case "mis" =>
           val g = tinyGraph()
-          runWithBackend(cfg) { () => executeMIS(a, g) }
+          runAndPrint(cfg) { () => executeMIS(a, g) }
         case "vertex-cover" =>
           val g = tinyGraph()
-          runWithBackend(cfg) { () => executeVertexCover(a, g) }
+          runAndPrint(cfg) { () => executeVertexCover(a, g) }
         case "sat" =>
           val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
           fRes match {
-            case Success(f) => runWithBackend(cfg) { () => executeMaxSat(a, f) }
-            case Error(_, msg) => { println("error: " ++ msg); 0.0 }
+            case Success(f) => runAndPrint(cfg) { () => executeMaxSat(a, f) }
+            case Error(_, msg) => println("error: " ++ msg)
           }
-        case _ => 0.0
+        case _ => ()
       }
-      println("result=" ++ out.show)
     case Error(_, msg) =>
       println("error: " ++ msg)
   }
