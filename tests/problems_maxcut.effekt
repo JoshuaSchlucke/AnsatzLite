@@ -1,4 +1,4 @@
-module tests/maxcut_problem
+module tests/problems_maxcut
 
 import test
 import src/qaoa/types

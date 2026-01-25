@@ -1,4 +1,4 @@
-module tests/statevector_backend
+module tests/backends_statevector
 
 import test
 import array

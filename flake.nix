@@ -25,8 +25,8 @@
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
         testFiles = [
           "tests/core_primitives.effekt"
-          "tests/statevector_backend.effekt"
-          "tests/maxcut_problem.effekt"
+          "tests/backends_statevector.effekt"
+          "tests/problems_maxcut.effekt"
           "tests/backends_sampling_noise.effekt"
           "tests/cli_parse_validate.effekt"
           "tests/problems_graph.effekt"
