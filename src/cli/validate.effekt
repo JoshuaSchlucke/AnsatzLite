@@ -38,7 +38,9 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
         wrongFormat("unknown formula: " ++ formula)
       }
     } else {
-      if (graph != "tiny") wrongFormat("only graph 'tiny' is supported")
+      if (graph != "tiny" && graph != "small" && graph != "medium" && graph != "large") {
+        wrongFormat("unknown graph: " ++ graph)
+      }
     }
 
     if (backend != "statevector" && backend != "shots" && backend != "noisy" && backend != "sampling" && backend != "pretty" && backend != "pretty-sample" && backend != "pretty+sample") {

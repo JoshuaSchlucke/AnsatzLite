@@ -1,6 +1,8 @@
 module tests/core_primitives
 
 import test
+import result
+import exception
 import src/qaoa/types
 import src/problems/graph
 import src/lib
@@ -36,6 +38,26 @@ def main() = mainSuite("Core primitives") {
         assertTrue(false, "expected one edge")
       case Cons(_, _) =>
         assertTrue(false, "expected one edge")
+    }
+  }
+
+  test("graph presets") {
+    val g1 = result[Graph, WrongFormat] { graphFromName("small") }
+    g1 match {
+      case Success(g) => assertEqual(g.numVertices, 3)
+      case Error(_, msg) => assertTrue(false, msg)
+    }
+
+    val g2 = result[Graph, WrongFormat] { graphFromName("medium") }
+    g2 match {
+      case Success(g) => assertEqual(g.numVertices, 4)
+      case Error(_, msg) => assertTrue(false, msg)
+    }
+
+    val g3 = result[Graph, WrongFormat] { graphFromName("large") }
+    g3 match {
+      case Success(g) => assertEqual(g.numVertices, 6)
+      case Error(_, msg) => assertTrue(false, msg)
     }
   }
 

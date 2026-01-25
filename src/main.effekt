@@ -137,26 +137,38 @@ def main() = {
     case Success(cfg) =>
       cfg.problem match {
         case "maxcut" =>
-          val g = tinyGraph()
-          val layers =
-            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
-          val a = ansatz(layers)
-          runAndPrint(cfg) { () => executeMaxCut(a, g) }
+          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+          gRes match {
+            case Success(g) =>
+              val layers =
+                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
+              val a = ansatz(layers)
+              runAndPrint(cfg) { () => executeMaxCut(a, g) }
+            case Error(_, msg) => println("error: " ++ msg)
+          }
         case "mis" =>
-          val g = tinyGraph()
-          val layers =
-            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
-          val a = ansatz(layers)
-          runAndPrint(cfg) { () => executeMIS(a, g) }
+          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+          gRes match {
+            case Success(g) =>
+              val layers =
+                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
+              val a = ansatz(layers)
+              runAndPrint(cfg) { () => executeMIS(a, g) }
+            case Error(_, msg) => println("error: " ++ msg)
+          }
         case "vertex-cover" =>
-          val g = tinyGraph()
-          val layers =
-            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
-          val a = ansatz(layers)
-          runAndPrint(cfg) { () => executeVertexCover(a, g) }
+          val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+          gRes match {
+            case Success(g) =>
+              val layers =
+                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
+              val a = ansatz(layers)
+              runAndPrint(cfg) { () => executeVertexCover(a, g) }
+            case Error(_, msg) => println("error: " ++ msg)
+          }
         case "sat" =>
           val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
           fRes match {
