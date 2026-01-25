@@ -1,6 +1,6 @@
 # AnsatzLite
 
-AnsatzLite is a small internal DSL and runtime for QAOA-style ansatz programs, written in Effekt.
+AnsatzLite is a small internal DSL and runtime for the Quantum alternating operator ansatz, written in Effekt.
 It showcases algebraic effects by separating pure problem definitions from effectful backends.
 
 ## Quick start
