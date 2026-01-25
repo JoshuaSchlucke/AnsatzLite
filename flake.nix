@@ -32,6 +32,7 @@
           "tests/backends_pretty_sampling.effekt"
           "tests/problems_maxcut.effekt"
           "tests/cli_parse_validate.effekt"
+          "tests/optimize_search.effekt"
           "tests/problems_graph.effekt"
           "tests/problems_sat.effekt"
         ]; # relative paths to tests (as a string)

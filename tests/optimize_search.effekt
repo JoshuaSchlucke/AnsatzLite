@@ -1,0 +1,60 @@
+module tests/optimize_search
+
+import test
+import src/optimize/basic
+import src/qaoa/types
+import src/problems/graph
+import src/problems/maxcut
+import src/handlers/statevector
+
+// Simple numeric helper for approximate comparisons.
+
+def abs(x: Double): Double =
+  if (x < 0.0) (0.0 - x) else x
+
+def assertApprox(obtained: Double, expected: Double, tol: Double) =
+  assertEqual(obtained, expected) { (x, y) => abs(x - y) <= tol } { x => x.show }
+
+def max2(a: Double, b: Double): Double = if (a > b) a else b
+
+
+def main() = mainSuite("Optimize search") {
+  test("gridSearch finds best of grid") {
+    val g = tinyGraph()
+
+    def eval(gamma: Double, beta: Double): Double =
+      withStatevector { executeMaxCut(ansatz([layer(gamma, beta)]), g) }
+
+    val v00 = eval(0.0, 0.0)
+    val v01 = eval(0.0, PI / 2.0)
+    val v10 = eval(PI, 0.0)
+    val v11 = eval(PI, PI / 2.0)
+    val expected = max2(max2(v00, v01), max2(v10, v11))
+
+    val res = gridSearch(1, 2, 0.0, PI, 0.0, PI / 2.0) { params =>
+      params match {
+        case Cons(gamma, Cons(beta, Nil())) =>
+          withStatevector { executeMaxCut(ansatz([layer(gamma, beta)]), g) }
+        case _ => 0.0
+      }
+    }
+
+    assertApprox(res.value, expected, 0.000000001)
+  }
+
+  test("randomSearch deterministic for seed") {
+    val g = tinyGraph()
+
+    def objective(params: List[Double]): Double = params match {
+      case Cons(gamma, Cons(beta, Nil())) =>
+        withStatevector { executeMaxCut(ansatz([layer(gamma, beta)]), g) }
+      case _ => 0.0
+    }
+
+    val r1 = randomSearch(1, 5, 123, 0.0, PI, 0.0, PI / 2.0) { objective }
+    val r2 = randomSearch(1, 5, 123, 0.0, PI, 0.0, PI / 2.0) { objective }
+
+    assertEqual(r1.params, r2.params)
+    assertApprox(r1.value, r2.value, 0.000000001)
+  }
+}

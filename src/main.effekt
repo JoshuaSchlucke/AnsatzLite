@@ -3,6 +3,7 @@ module main // must be named same as the file!
 import args
 import result
 import exception
+import list
 import src/cli/parse
 import src/cli/validate
 import src/qaoa/types
@@ -13,6 +14,7 @@ import src/handlers/noise
 import src/handlers/sampling
 import src/handlers/pretty_print
 import src/handlers/pretty_sampling
+import src/optimize/basic
 import src/problems/graph
 import src/problems/maxcut
 import src/problems/mis
@@ -25,6 +27,54 @@ def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) matc
   case (Nil(), Nil()) => Nil()
   case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
   case _ => Nil()
+}
+
+def layersFromParams(params: List[Double], p: Int): List[Layer] = {
+  val gs = list::take(params, p)
+  val bs = list::drop(params, p)
+  buildLayers(gs, bs)
+}
+
+def showDoubleList(xs: List[Double]): String = {
+  var out = "["
+  var first = true
+  xs.foreach { v =>
+    if (first) {
+      out = out ++ v.show
+      first = false
+    } else {
+      out = out ++ ", " ++ v.show
+    }
+  }
+  out ++ "]"
+}
+
+def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
+  def evalParams(params: List[Double]): Double = {
+    val layers = layersFromParams(params, cfg.p)
+    val a = ansatz(layers)
+    objective(a)
+  }
+
+  cfg.opt match {
+    case "grid" =>
+      val res = gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val gs = list::take(res.params, cfg.p)
+        val bs = list::drop(res.params, cfg.p)
+        println("opt=grid best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
+    case "random" =>
+      val res = randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val gs = list::take(res.params, cfg.p)
+        val bs = list::drop(res.params, cfg.p)
+        println("opt=random best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
+    case _ => buildLayers(cfg.gammas, cfg.betas)
+  }
 }
 
 
@@ -69,23 +119,37 @@ def main() = {
 
   cfgRes match {
     case Success(cfg) =>
-      val layers = buildLayers(cfg.gammas, cfg.betas)
-      val a = ansatz(layers)
-
       cfg.problem match {
         case "maxcut" =>
           val g = tinyGraph()
+          val layers =
+            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
+          val a = ansatz(layers)
           runAndPrint(cfg) { () => executeMaxCut(a, g) }
         case "mis" =>
           val g = tinyGraph()
+          val layers =
+            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
+          val a = ansatz(layers)
           runAndPrint(cfg) { () => executeMIS(a, g) }
         case "vertex-cover" =>
           val g = tinyGraph()
+          val layers =
+            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
+          val a = ansatz(layers)
           runAndPrint(cfg) { () => executeVertexCover(a, g) }
         case "sat" =>
           val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
           fRes match {
-            case Success(f) => runAndPrint(cfg) { () => executeMaxSat(a, f) }
+            case Success(f) =>
+              val layers =
+                if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
+              val a = ansatz(layers)
+              runAndPrint(cfg) { () => executeMaxSat(a, f) }
             case Error(_, msg) => println("error: " ++ msg)
           }
         case _ => ()

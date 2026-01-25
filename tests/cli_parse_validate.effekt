@@ -87,6 +87,19 @@ def main() = mainSuite("CLI parsing + validation") {
     assertApprox(cfg.noiseProb, 0.25)
   }
 
+  test("optimizer grid + steps") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] {
+      validateConfig(parseArgs(["--opt", "grid", "--opt-steps", "7", "--gamma-min", "0.1", "--gamma-max", "1.2", "--beta-min", "0.2", "--beta-max", "0.8", "--opt-verbose"]))
+    }, "opt grid config")
+    assertEqual(cfg.opt, "grid")
+    assertEqual(cfg.optSteps, 7)
+    assertApprox(cfg.gammaMin, 0.1)
+    assertApprox(cfg.gammaMax, 1.2)
+    assertApprox(cfg.betaMin, 0.2)
+    assertApprox(cfg.betaMax, 0.8)
+    assertEqual(cfg.optVerbose, true)
+  }
+
   test("validation errors") {
     val bad1 = result[Config, WrongFormat] { validateConfig(parseArgs(["--p", "2", "--gammas", "0.1"])) }
     assertError(bad1)
@@ -99,5 +112,20 @@ def main() = mainSuite("CLI parsing + validation") {
 
     val bad4 = result[Config, WrongFormat] { validateConfig(parseArgs(["--backend", "foo"])) }
     assertError(bad4)
+
+    val bad5 = result[Config, WrongFormat] { validateConfig(parseArgs(["--opt", "foo"])) }
+    assertError(bad5)
+
+    val bad6 = result[Config, WrongFormat] { validateConfig(parseArgs(["--opt-steps", "0"])) }
+    assertError(bad6)
+
+    val bad7 = result[Config, WrongFormat] { validateConfig(parseArgs(["--backend", "pretty", "--opt", "grid"])) }
+    assertError(bad7)
+
+    val bad8 = result[Config, WrongFormat] { validateConfig(parseArgs(["--gamma-min", "1.0", "--gamma-max", "0.5"])) }
+    assertError(bad8)
+
+    val bad9 = result[Config, WrongFormat] { validateConfig(parseArgs(["--beta-min", "1.0", "--beta-max", "0.5"])) }
+    assertError(bad9)
   }
 }

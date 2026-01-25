@@ -1,0 +1,76 @@
+module src/optimize/basic
+
+import random
+import list
+
+record SearchResult(params: List[Double], value: Double)
+
+
+def linspace(min: Double, max: Double, steps: Int): List[Double] = {
+  if (steps <= 1) [min]
+  else {
+    val step = (max - min) / (steps - 1).toDouble
+    var acc: List[Double] = Nil()
+    var i = 0
+    while (i < steps) {
+      acc = Cons(min + (i.toDouble * step), acc)
+      i = i + 1
+    }
+    acc.reverse
+  }
+}
+
+
+def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  val gammas = linspace(gammaMin, gammaMax, steps)
+  val betas = linspace(betaMin, betaMax, steps)
+
+  def searchLayer(i: Int, gsAcc: List[Double], bsAcc: List[Double])
+    : SearchResult = {
+    if (i == p) {
+      val params = list::append(gsAcc.reverse, bsAcc.reverse)
+      val value = objective(params)
+      SearchResult(params, value)
+    } else {
+      var best = SearchResult(Nil(), -1000000000000.0)
+      gammas.foreach { g =>
+        betas.foreach { b =>
+          val res = searchLayer(i + 1, Cons(g, gsAcc), Cons(b, bsAcc))
+          if (res.value > best.value) { best = res }
+        }
+      }
+      best
+    }
+  }
+
+  searchLayer(0, Nil(), Nil())
+}
+
+
+def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  var best = SearchResult(Nil(), -1000000000000.0)
+  random::minstd(seed) {
+    var i = 0
+    while (i < samples) {
+      var gs: List[Double] = Nil()
+      var bs: List[Double] = Nil()
+      var j = 0
+      while (j < p) {
+        val g = gammaMin + (gammaMax - gammaMin) * random::randomDouble()
+        val b = betaMin + (betaMax - betaMin) * random::randomDouble()
+        gs = Cons(g, gs)
+        bs = Cons(b, bs)
+        j = j + 1
+      }
+      val params = list::append(gs.reverse, bs.reverse)
+      val value = objective(params)
+      if (value > best.value) { best = SearchResult(params, value) }
+      i = i + 1
+    }
+  }
+  best
+}

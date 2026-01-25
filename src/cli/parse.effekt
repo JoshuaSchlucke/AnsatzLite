@@ -6,63 +6,98 @@ import string
 import exception
 import partial
 
-record Config(problem: String, graph: String, formula: String, p: Int, gammas: List[Double], betas: List[Double], backend: String, numShots: Int, noiseModel: String, noiseProb: Double, seed: Int)
+record Config(problem: String, graph: String, formula: String, p: Int, gammas: List[Double], betas: List[Double], backend: String, opt: String, optSteps: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double, optVerbose: Bool, numShots: Int, noiseModel: String, noiseProb: Double, seed: Int)
 
 // Default config: 1 layer, MaxCut tiny graph.
 
 def defaultConfig(): Config =
-  Config("maxcut", "tiny", "tiny", 1, [], [], "statevector", 1000, "bitflip", 0.05, 1337)
+  Config("maxcut", "tiny", "tiny", 1, [], [], "statevector", "none", 5, 0.0, PI, 0.0, PI / 2.0, false, 1000, "bitflip", 0.05, 1337)
 
 // Record helpers
 
 def withProblem(cfg: Config, problem: String): Config = cfg match {
-  case Config(_, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(_, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withGraph(cfg: Config, graph: String): Config = cfg match {
-  case Config(problem, _, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, _, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withFormula(cfg: Config, formula: String): Config = cfg match {
-  case Config(problem, graph, _, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, _, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withP(cfg: Config, p: Int): Config = cfg match {
-  case Config(problem, graph, formula, _, gammas, betas, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, _, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withGammas(cfg: Config, gammas: List[Double]): Config = cfg match {
-  case Config(problem, graph, formula, p, _, betas, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, _, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withBetas(cfg: Config, betas: List[Double]): Config = cfg match {
-  case Config(problem, graph, formula, p, gammas, _, backend, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, gammas, _, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withBackend(cfg: Config, backend: String): Config = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, _, numShots, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, gammas, betas, _, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withOpt(cfg: Config, opt: String): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, _, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withOptSteps(cfg: Config, optSteps: Int): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, _, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withGammaMin(cfg: Config, gammaMin: Double): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, _, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withGammaMax(cfg: Config, gammaMax: Double): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, _, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withBetaMin(cfg: Config, betaMin: Double): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, _, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withBetaMax(cfg: Config, betaMax: Double): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, _, optVerbose, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
+}
+
+def withOptVerbose(cfg: Config, optVerbose: Bool): Config = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, _, numShots, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withNumShots(cfg: Config, numShots: Int): Config = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, backend, _, noiseModel, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, _, noiseModel, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withNoiseModel(cfg: Config, noiseModel: String): Config = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, backend, numShots, _, noiseProb, seed) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, _, noiseProb, seed) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 def withSeed(cfg: Config, seed: Int): Config = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, _) =>
-    Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, noiseProb, seed)
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, _) =>
+    Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, noiseProb, seed)
 }
 
 // Numeric parsing (simple decimal, optional sign).
@@ -130,6 +165,13 @@ def parseArgs(args: List[String]): Config / Exception[WrongFormat] = {
     case Cons("--graph", Cons(v, tail)) => loop(tail, withGraph(cfg, v))
     case Cons("--formula", Cons(v, tail)) => loop(tail, withFormula(cfg, v))
     case Cons("--backend", Cons(v, tail)) => loop(tail, withBackend(cfg, v))
+    case Cons("--opt", Cons(v, tail)) => loop(tail, withOpt(cfg, v))
+    case Cons("--opt-steps", Cons(v, tail)) => loop(tail, withOptSteps(cfg, toIntStrict(v)))
+    case Cons("--gamma-min", Cons(v, tail)) => loop(tail, withGammaMin(cfg, parseDouble(v)))
+    case Cons("--gamma-max", Cons(v, tail)) => loop(tail, withGammaMax(cfg, parseDouble(v)))
+    case Cons("--beta-min", Cons(v, tail)) => loop(tail, withBetaMin(cfg, parseDouble(v)))
+    case Cons("--beta-max", Cons(v, tail)) => loop(tail, withBetaMax(cfg, parseDouble(v)))
+    case Cons("--opt-verbose", tail) => loop(tail, withOptVerbose(cfg, true))
     case Cons("--num-shots", Cons(v, tail)) => loop(tail, withNumShots(cfg, toIntStrict(v)))
     case Cons("--noise-model", Cons(v, tail)) => loop(tail, withNoiseModel(cfg, v))
     case Cons("--seed", Cons(v, tail)) => loop(tail, withSeed(cfg, toIntStrict(v)))

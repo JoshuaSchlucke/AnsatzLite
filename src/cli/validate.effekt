@@ -20,7 +20,7 @@ def parseNoiseModel(model: String): (String, Double) / Exception[WrongFormat] =
 
 
 def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
-  case Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, _, seed) =>
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, noiseModel, _, seed) =>
     if (p <= 0) wrongFormat("p must be >= 1")
 
     val gs = if (gammas.size == 0) list::fill(p, 0.0) else gammas
@@ -49,11 +49,32 @@ def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
       wrongFormat("num-shots must be >= 1 for shots/sampling backend")
     }
 
+    if (opt != "none" && opt != "grid" && opt != "random") {
+      wrongFormat("unknown optimizer: " ++ opt)
+    }
+
+    if (optSteps <= 0) {
+      wrongFormat("opt-steps must be >= 1")
+    }
+
+    if (opt != "none" &&
+        (backend == "sampling" || backend == "pretty" || backend == "pretty-sample" || backend == "pretty+sample")) {
+      wrongFormat("optimizer requires numeric backend (statevector/shots/noisy)")
+    }
+
+    if (gammaMin > gammaMax) {
+      wrongFormat("gamma-min must be <= gamma-max")
+    }
+
+    if (betaMin > betaMax) {
+      wrongFormat("beta-min must be <= beta-max")
+    }
+
     val (nm, np) = parseNoiseModel(noiseModel)
 
     if (seed < 0) {
       wrongFormat("seed must be >= 0")
     }
 
-    Config(problem, graph, formula, p, gs, bs, backend, numShots, nm, np, seed)
+    Config(problem, graph, formula, p, gs, bs, backend, opt, optSteps, gammaMin, gammaMax, betaMin, betaMax, optVerbose, numShots, nm, np, seed)
 }
