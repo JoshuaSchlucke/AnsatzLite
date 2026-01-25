@@ -6,25 +6,7 @@ import src/lib
 import src/handlers/statevector
 import src/qaoa/effects
 
-// Sample a basis index from the state distribution.
-
-def sampleIndex(state: Array[Complex]): Int / random = {
-  val r = random::randomDouble()
-  val size = state.size
-  var acc = 0.0
-  var chosen = -1
-  var i = 0
-  while (i < size) {
-    acc = acc + abs2(getAt(state, i))
-    if (chosen == -1 && r <= acc) {
-      chosen = i
-    }
-    i = i + 1
-  }
-  if (chosen == -1) size - 1 else chosen
-}
-
-
+// Sample expectation values from the state distribution.
 def sampleExpect(state: Array[Complex], shots: Int) { value: Int => Double }: Double / random = {
   if (shots <= 0) 0.0 else {
     var sum = 0.0

@@ -4,22 +4,9 @@ import effekt
 import src/qaoa/types
 import src/qaoa/effects
 import src/problems/graph
+import src/lib
 
 // Max Independent Set on a graph.
-
-def bitAt(bits: Int, index: Int): Int =
-  bitwiseAnd(bitwiseShr(bits, index), 1)
-
-
-def popcount(bits: Int, n: Int): Int = {
-  var count = 0
-  var i = 0
-  while (i < n) {
-    count = count + bitAt(bits, i)
-    i = i + 1
-  }
-  count
-}
 
 
 def isIndependent(bits: Int, g: Graph): Bool = {

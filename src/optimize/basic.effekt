@@ -51,6 +51,8 @@ def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: 
 def clamp(x: Double, lo: Double, hi: Double): Double =
   if (x < lo) lo else if (x > hi) hi else x
 
+// Local helper to avoid Exception[OutOfBounds]: localSearch can accept a short init list,
+// and missing indices default to 0.0 rather than raising.
 def getAt(xs: List[Double], index: Int, default: Double): Double = xs match {
   case Nil() => default
   case Cons(x, rest) => if (index == 0) x else getAt(rest, index - 1, default)

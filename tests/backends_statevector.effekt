@@ -26,8 +26,8 @@ def main() = mainSuite("Statevector backend") {
   test("plusState amplitudes") {
     val st = plusState(1)
     assertEqual(st.size, 2)
-    val amp0 = getAt(st, 0)
-    val amp1 = getAt(st, 1)
+    val amp0 = st.get(0)
+    val amp1 = st.get(1)
     val expected = 1.0 / sqrt(2.0)
     assertApprox(amp0.re, expected)
     assertApprox(amp1.re, expected)
@@ -37,11 +37,11 @@ def main() = mainSuite("Statevector backend") {
 
   test("expectZ0 on basis states") {
     val st = array(2, zero())
-    setAt(st, 0, one())
+    st.set(0, one())
     assertApprox(expectZ0(st), 1.0)
 
-    setAt(st, 0, zero())
-    setAt(st, 1, one())
+    st.set(0, zero())
+    st.set(1, one())
     assertApprox(expectZ0(st), -1.0)
   }
 

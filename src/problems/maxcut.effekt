@@ -4,10 +4,7 @@ import effekt
 import src/qaoa/types
 import src/qaoa/effects
 import src/problems/graph
-
-def bitAt(bits: Int, index: Int): Int =
-  bitwiseAnd(bitwiseShr(bits, index), 1)
-
+import src/lib
 
 def cutValue(bits: Int, g: Graph): Double = {
   var sum = 0.0

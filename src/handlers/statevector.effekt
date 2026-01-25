@@ -2,7 +2,6 @@ module src/handlers/statevector
 
 import effekt
 import array
-import exception
 import src/lib
 import src/qaoa/effects
 
@@ -20,14 +19,6 @@ def plusState(n: Int): Array[Complex] = {
 }
 
 
-def getAt[T](arr: Array[T], index: Int): T =
-  exception::panicOn[OutOfBounds, T] { arr.get(index) }
-
-
-def setAt[T](arr: Array[T], index: Int, value: T): Unit =
-  exception::panicOn[OutOfBounds, Unit] { arr.set(index, value) }
-
-
 def applyGate(state: Array[Complex], qubit: Int, u00: Complex, u01: Complex, u10: Complex, u11: Complex): Unit = {
   val size = state.size
   val stride = bitwiseShl(1, qubit)
@@ -37,12 +28,12 @@ def applyGate(state: Array[Complex], qubit: Int, u00: Complex, u01: Complex, u10
     while (offset < stride) {
       val i0 = base + offset
       val i1 = i0 + stride
-      val a0 = getAt(state, i0)
-      val a1 = getAt(state, i1)
+      val a0 = state.get(i0)
+      val a1 = state.get(i1)
       val b0 = add(mul(u00, a0), mul(u01, a1))
       val b1 = add(mul(u10, a0), mul(u11, a1))
-      setAt(state, i0, b0)
-      setAt(state, i1, b1)
+      state.set(i0, b0)
+      state.set(i1, b1)
       offset = offset + 1
     }
     base = base + (stride * 2)
@@ -83,11 +74,11 @@ def applyZZ(state: Array[Complex], q1: Int, q2: Int, theta: Double): Unit = {
   while (i < size) {
     val b1 = bitwiseAnd(bitwiseShr(i, q1), 1)
     val b2 = bitwiseAnd(bitwiseShr(i, q2), 1)
-    val amp = getAt(state, i)
+    val amp = state.get(i)
     if (b1 == b2) {
-      setAt(state, i, mul(phaseSame, amp))
+      state.set(i, mul(phaseSame, amp))
     } else {
-      setAt(state, i, mul(phaseDiff, amp))
+      state.set(i, mul(phaseDiff, amp))
     }
     i = i + 1
   }
@@ -100,8 +91,8 @@ def applyPredicatePhase(state: Array[Complex], gamma: Double) { predicate: Int =
   var i = 0
   while (i < size) {
     if (predicate(i)) {
-      val amp = getAt(state, i)
-      setAt(state, i, mul(phase, amp))
+      val amp = state.get(i)
+      state.set(i, mul(phase, amp))
     }
     i = i + 1
   }
@@ -113,7 +104,7 @@ def expectValue(state: Array[Complex]) { value: Int => Double }: Double = {
   val size = state.size
   var i = 0
   while (i < size) {
-    val prob = abs2(getAt(state, i))
+    val prob = abs2(state.get(i))
     sum = sum + (value(i) * prob)
     i = i + 1
   }

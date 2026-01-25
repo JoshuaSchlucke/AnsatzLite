@@ -2,12 +2,10 @@ module src/qaoa/dsl
 
 import src/qaoa/types
 import src/qaoa/effects
+import src/lib
 import effekt
 
 // Build and execute a QAOA program using effects.
-
-def bitAt(bits: Int, index: Int): Int =
-  bitwiseAnd(bitwiseShr(bits, index), 1)
 
 def execute(a: Ansatz, qubits: Int): Double / {prepare, cost, mixer, expect} = {
   do prepare(qubits)

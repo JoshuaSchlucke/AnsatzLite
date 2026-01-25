@@ -10,23 +10,6 @@ import src/qaoa/effects
 // Sampling handler that returns measured bitstrings (as strings).
 
 
-def sampleIndex(state: Array[Complex]): Int / random = {
-  val r = random::randomDouble()
-  val size = state.size
-  var acc = 0.0
-  var chosen = -1
-  var i = 0
-  while (i < size) {
-    acc = acc + abs2(getAt(state, i))
-    if (chosen == -1 && r <= acc) {
-      chosen = i
-    }
-    i = i + 1
-  }
-  if (chosen == -1) size - 1 else chosen
-}
-
-
 def bitsToString(value: Int, qubits: Int): String = {
   var out = ""
   var i = qubits - 1
