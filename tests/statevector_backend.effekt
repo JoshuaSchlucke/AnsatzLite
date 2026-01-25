@@ -1,0 +1,59 @@
+module tests/statevector_backend
+
+import test
+import array
+import src/handlers/statevector
+import src/qaoa/types
+import src/qaoa/dsl
+import src/lib
+
+// Simple numeric helper for approximate comparisons.
+
+def abs(x: Double): Double =
+  if (x < 0.0) (0.0 - x) else x
+
+def assertApprox(obtained: Double, expected: Double) =
+  assertEqual(obtained, expected) { (x, y) => abs(x - y) <= 0.000000001 } { x => x.show }
+
+
+def main() = mainSuite("Statevector backend") {
+  test("pow2") {
+    assertEqual(pow2(0), 1)
+    assertEqual(pow2(1), 2)
+    assertEqual(pow2(5), 32)
+  }
+
+  test("plusState amplitudes") {
+    val st = plusState(1)
+    assertEqual(array::size(st), 2)
+    val amp0 = getAt(st, 0)
+    val amp1 = getAt(st, 1)
+    val expected = 1.0 / sqrt(2.0)
+    assertApprox(amp0.re, expected)
+    assertApprox(amp1.re, expected)
+    assertEqual(amp0.im, 0.0)
+    assertEqual(amp1.im, 0.0)
+  }
+
+  test("expectZ0 on basis states") {
+    val st = array(2, zero())
+    setAt(st, 0, one())
+    assertApprox(expectZ0(st), 1.0)
+
+    setAt(st, 0, zero())
+    setAt(st, 1, one())
+    assertApprox(expectZ0(st), -1.0)
+  }
+
+  test("execute + statevector handler") {
+    val a = ansatz([layer(PI / 2.0, PI / 2.0)])
+    val energy = withStatevector { execute(a, 1) }
+    assertApprox(energy, 1.0)
+  }
+
+  test("execute on 2 qubits") {
+    val a = ansatz([layer(PI / 2.0, PI / 2.0)])
+    val energy = withStatevector { execute(a, 2) }
+    assertApprox(energy, 1.0)
+  }
+}

@@ -1,0 +1,32 @@
+module tests/problems_sat
+
+import test
+import src/qaoa/types
+import src/handlers/statevector
+import src/problems/sat
+
+// Simple numeric helper for approximate comparisons.
+
+def abs(x: Double): Double =
+  if (x < 0.0) (0.0 - x) else x
+
+def assertApprox(obtained: Double, expected: Double, tol: Double) =
+  assertEqual(obtained, expected) { (x, y) => abs(x - y) <= tol } { x => x.show }
+
+
+def main() = mainSuite("SAT problems") {
+  test("Max-SAT clause satisfaction") {
+    val f = tinyFormula()
+    assertEqual(satCount(0, f), 1)
+    assertEqual(satCount(1, f), 1)
+    assertEqual(satCount(2, f), 2)
+    assertEqual(satCount(3, f), 2)
+  }
+
+  test("executeMaxSat on uniform state") {
+    val f = tinyFormula()
+    val a = ansatz([layer(0.0, 0.0)])
+    val value = withStatevector { executeMaxSat(a, f) }
+    assertApprox(value, 1.5, 0.000000001)
+  }
+}

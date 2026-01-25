@@ -21,9 +21,17 @@
 
         ## Project configuration
         pname = "AnsatzLite";         # package name
-        version = "0.1.0";                 # package version
+        version = "0.1.1";                 # package version
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
-        testFiles = [ "src/test.effekt" ]; # relative paths to tests (as a string)
+        testFiles = [
+          "tests/core_primitives.effekt"
+          "tests/statevector_backend.effekt"
+          "tests/maxcut_problem.effekt"
+          "tests/backends_sampling_noise.effekt"
+          "tests/cli_parse_validate.effekt"
+          "tests/problems_graph.effekt"
+          "tests/problems_sat.effekt"
+        ]; # relative paths to tests (as a string)
 
         ## Effekt configuration
         effektConfig = {

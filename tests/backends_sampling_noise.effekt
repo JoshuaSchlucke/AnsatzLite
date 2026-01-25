@@ -1,0 +1,44 @@
+module tests/backends_sampling_noise
+
+import test
+import src/qaoa/types
+import src/qaoa/dsl
+import src/problems/graph
+import src/problems/maxcut
+import src/handlers/statevector
+import src/handlers/shot_based
+import src/handlers/noise
+
+// Simple numeric helper for approximate comparisons.
+
+def abs(x: Double): Double =
+  if (x < 0.0) (0.0 - x) else x
+
+def assertApprox(obtained: Double, expected: Double, tol: Double) =
+  assertEqual(obtained, expected) { (x, y) => abs(x - y) <= tol } { x => x.show }
+
+
+def main() = mainSuite("Sampling + noise backends") {
+  test("shot-based Z0 close to exact") {
+    val a = ansatz([layer(0.0, 0.0)])
+    val exact = withStatevector { execute(a, 1) }
+    val sampled = withShots(2000, 1337) { execute(a, 1) }
+    assertApprox(sampled, exact, 0.1)
+  }
+
+  test("shot-based MaxCut close to exact") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.0, 0.0)])
+    val exact = withStatevector { executeMaxCut(a, g) }
+    val sampled = withShots(2000, 1337) { executeMaxCut(a, g) }
+    assertApprox(sampled, exact, 0.1)
+  }
+
+  test("noise p=0 matches exact") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.3, 0.7)])
+    val exact = withStatevector { executeMaxCut(a, g) }
+    val noisy = withNoisyStatevector(0.0, 42) { executeMaxCut(a, g) }
+    assertApprox(noisy, exact, 0.000000001)
+  }
+}
