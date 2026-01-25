@@ -1,0 +1,23 @@
+module src/qaoa/types
+
+record Layer(gamma: Double, beta: Double)
+record Ansatz(layers: List[Layer])
+
+// Constructors
+
+def layer(gamma: Double, beta: Double): Layer =
+  Layer(gamma, beta)
+
+def ansatz(layers: List[Layer]): Ansatz =
+  Ansatz(layers)
+
+// Utilities
+
+def depth(a: Ansatz): Int =
+  a.layers.size
+
+def gammas(a: Ansatz): List[Double] =
+  a.layers.map { l => l.gamma }
+
+def betas(a: Ansatz): List[Double] =
+  a.layers.map { l => l.beta }

@@ -1,5 +1,69 @@
 module main // must be named same as the file!
 
-import src/lib
+import args
+import result
+import exception
+import src/cli/parse
+import src/cli/validate
+import src/qaoa/types
+import src/qaoa/effects
+import src/handlers/statevector
+import src/handlers/shot_based
+import src/handlers/noise
+import src/problems/graph
+import src/problems/maxcut
+import src/problems/mis
+import src/problems/vertex_cover
+import src/problems/sat
 
-def main(): Unit = println(helloWorld())
+// Build layers from parameter lists.
+
+def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) match {
+  case (Nil(), Nil()) => Nil()
+  case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
+  case _ => Nil()
+}
+
+
+def runWithBackend(cfg: Config) { program: () => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: Double =
+  cfg.backend match {
+    case "statevector" => withStatevector { program() }
+    case "shots" => withShots(cfg.numShots, cfg.seed) { program() }
+    case "noisy" => withNoisyStatevector(cfg.noiseProb, cfg.seed) { program() }
+    case _ => 0.0
+  }
+
+// MVP entrypoint: parse args and run a problem instance.
+
+def main() = {
+  val argsList = args::commandLineArgs()
+  val cfgRes = result[Config, WrongFormat] { validateConfig(parseArgs(argsList)) }
+
+  cfgRes match {
+    case Success(cfg) =>
+      val layers = buildLayers(cfg.gammas, cfg.betas)
+      val a = ansatz(layers)
+
+      val out = cfg.problem match {
+        case "maxcut" =>
+          val g = tinyGraph()
+          runWithBackend(cfg) { () => executeMaxCut(a, g) }
+        case "mis" =>
+          val g = tinyGraph()
+          runWithBackend(cfg) { () => executeMIS(a, g) }
+        case "vertex-cover" =>
+          val g = tinyGraph()
+          runWithBackend(cfg) { () => executeVertexCover(a, g) }
+        case "sat" =>
+          val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
+          fRes match {
+            case Success(f) => runWithBackend(cfg) { () => executeMaxSat(a, f) }
+            case Error(_, msg) => { println("error: " ++ msg); 0.0 }
+          }
+        case _ => 0.0
+      }
+      println("result=" ++ out.show)
+    case Error(_, msg) =>
+      println("error: " ++ msg)
+  }
+}

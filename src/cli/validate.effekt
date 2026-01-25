@@ -1,0 +1,59 @@
+module src/cli/validate
+
+import list
+import string
+import exception
+import src/cli/parse
+
+// Validate and normalize CLI config.
+
+def parseNoiseModel(model: String): (String, Double) / Exception[WrongFormat] =
+  string::split(model, ":") match {
+    case Cons("none", Nil()) => ("none", 0.0)
+    case Cons("bitflip", Nil()) => ("bitflip", 0.05)
+    case Cons("bitflip", Cons(pStr, Nil())) =>
+      val p = parseDouble(pStr)
+      if (p < 0.0 || p > 1.0) wrongFormat("noise probability must be in [0,1]")
+      else ("bitflip", p)
+    case _ => wrongFormat("unknown noise model: " ++ model)
+  }
+
+
+def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, numShots, noiseModel, _, seed) =>
+    if (p <= 0) wrongFormat("p must be >= 1")
+
+    val gs = if (gammas.size == 0) list::fill(p, 0.0) else gammas
+    val bs = if (betas.size == 0) list::fill(p, 0.0) else betas
+
+    if (gs.size != p) wrongFormat("gammas length must equal p")
+    if (bs.size != p) wrongFormat("betas length must equal p")
+
+    if (problem != "maxcut" && problem != "mis" && problem != "vertex-cover" && problem != "sat") {
+      wrongFormat("unknown problem: " ++ problem)
+    }
+
+    if (problem == "sat") {
+      if (not(formula == "tiny" || formula.startsWith("k"))) {
+        wrongFormat("unknown formula: " ++ formula)
+      }
+    } else {
+      if (graph != "tiny") wrongFormat("only graph 'tiny' is supported")
+    }
+
+    if (backend != "statevector" && backend != "shots" && backend != "noisy") {
+      wrongFormat("unknown backend: " ++ backend)
+    }
+
+    if (backend == "shots" && numShots <= 0) {
+      wrongFormat("num-shots must be >= 1 for shots backend")
+    }
+
+    val (nm, np) = parseNoiseModel(noiseModel)
+
+    if (seed < 0) {
+      wrongFormat("seed must be >= 0")
+    }
+
+    Config(problem, graph, formula, p, gs, bs, backend, numShots, nm, np, seed)
+}

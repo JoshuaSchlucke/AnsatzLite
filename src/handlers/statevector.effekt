@@ -1,0 +1,165 @@
+module src/handlers/statevector
+
+import effekt
+import array
+import exception
+import src/lib
+import src/qaoa/effects
+
+// Minimal statevector backend (single-qubit gates applied to all qubits).
+
+def pow2(n: Int): Int =
+  bitwiseShl(1, n)
+
+
+def plusState(n: Int): Array[Complex] = {
+  val size = pow2(n)
+  val norm = 1.0 / sqrt(size.toDouble)
+  val amp = real(norm)
+  array(size, amp)
+}
+
+
+def getAt[T](arr: Array[T], index: Int): T =
+  exception::panicOn[OutOfBounds, T] { array::get(arr, index) }
+
+
+def setAt[T](arr: Array[T], index: Int, value: T): Unit =
+  exception::panicOn[OutOfBounds, Unit] { array::set(arr, index, value) }
+
+
+def applyGate(state: Array[Complex], qubit: Int, u00: Complex, u01: Complex, u10: Complex, u11: Complex): Unit = {
+  val size = array::size(state)
+  val stride = bitwiseShl(1, qubit)
+  var base = 0
+  while (base < size) {
+    var offset = 0
+    while (offset < stride) {
+      val i0 = base + offset
+      val i1 = i0 + stride
+      val a0 = getAt(state, i0)
+      val a1 = getAt(state, i1)
+      val b0 = add(mul(u00, a0), mul(u01, a1))
+      val b1 = add(mul(u10, a0), mul(u11, a1))
+      setAt(state, i0, b0)
+      setAt(state, i1, b1)
+      offset = offset + 1
+    }
+    base = base + (stride * 2)
+  }
+}
+
+
+def applyRzAll(state: Array[Complex], qubits: Int, gamma: Double): Unit = {
+  val phase0 = expI(0.0 - (gamma / 2.0))
+  val phase1 = expI(gamma / 2.0)
+  each(0, qubits) { q =>
+    applyGate(state, q, phase0, zero(), zero(), phase1)
+  }
+}
+
+
+def applyRxAll(state: Array[Complex], qubits: Int, beta: Double): Unit = {
+  val c = cos(beta / 2.0)
+  val s = sin(beta / 2.0)
+  val u00 = real(c)
+  val u11 = real(c)
+  val off = imag(0.0 - s)
+  each(0, qubits) { q =>
+    applyGate(state, q, u00, off, off, u11)
+  }
+}
+
+
+def applyX(state: Array[Complex], qubit: Int): Unit =
+  applyGate(state, qubit, zero(), one(), one(), zero())
+
+
+def applyZZ(state: Array[Complex], q1: Int, q2: Int, theta: Double): Unit = {
+  val phaseSame = expI(theta / 2.0)
+  val phaseDiff = expI(0.0 - (theta / 2.0))
+  val size = array::size(state)
+  var i = 0
+  while (i < size) {
+    val b1 = bitwiseAnd(bitwiseShr(i, q1), 1)
+    val b2 = bitwiseAnd(bitwiseShr(i, q2), 1)
+    val amp = getAt(state, i)
+    if (b1 == b2) {
+      setAt(state, i, mul(phaseSame, amp))
+    } else {
+      setAt(state, i, mul(phaseDiff, amp))
+    }
+    i = i + 1
+  }
+}
+
+
+def applyPredicatePhase(state: Array[Complex], gamma: Double) { predicate: Int => Bool }: Unit = {
+  val phase = expI(0.0 - gamma)
+  val size = array::size(state)
+  var i = 0
+  while (i < size) {
+    if (predicate(i)) {
+      val amp = getAt(state, i)
+      setAt(state, i, mul(phase, amp))
+    }
+    i = i + 1
+  }
+}
+
+
+def expectValue(state: Array[Complex]) { value: Int => Double }: Double = {
+  var sum = 0.0
+  val size = array::size(state)
+  var i = 0
+  while (i < size) {
+    val prob = abs2(getAt(state, i))
+    sum = sum + (value(i) * prob)
+    i = i + 1
+  }
+  sum
+}
+
+
+def expectZ0(state: Array[Complex]): Double =
+  expectValue(state) { value =>
+    if (bitwiseAnd(value, 1) == 0) 1.0 else -1.0
+  }
+
+// Handler for QAOA effects (problem-agnostic).
+
+def withStatevector { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double = {
+  var qubits = 0
+  var state: Array[Complex] = array(0, zero())
+
+  try { prog() }
+  with prepare { n =>
+    qubits = n
+    state = plusState(n)
+    resume(())
+  }
+  with cost { gamma =>
+    applyRzAll(state, qubits, gamma)
+    resume(())
+  }
+  with costEdge { (gamma, u, v, w) =>
+    applyZZ(state, u, v, gamma * w)
+    resume(())
+  }
+  with costPredicate { gamma =>
+    resume { {predicate} =>
+      applyPredicatePhase(state, gamma) { predicate }
+      ()
+    }
+  }
+  with mixer { beta =>
+    applyRxAll(state, qubits, beta)
+    resume(())
+  }
+  with expect {
+    resume { {value} =>
+      val energy = expectValue(state) { value }
+      energy
+    }
+  }
+}

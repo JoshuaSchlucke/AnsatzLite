@@ -1,0 +1,57 @@
+module src/problems/vertex_cover
+
+import effekt
+import src/qaoa/types
+import src/qaoa/effects
+import src/problems/graph
+
+// Minimum Vertex Cover on a graph.
+
+def bitAt(bits: Int, index: Int): Int =
+  bitwiseAnd(bitwiseShr(bits, index), 1)
+
+
+def popcount(bits: Int, n: Int): Int = {
+  var count = 0
+  var i = 0
+  while (i < n) {
+    count = count + bitAt(bits, i)
+    i = i + 1
+  }
+  count
+}
+
+
+def uncoveredEdges(bits: Int, g: Graph): Int = {
+  var missing = 0
+  g.edges.foreach { e =>
+    val a = bitAt(bits, e.u)
+    val b = bitAt(bits, e.v)
+    if (a == 0 && b == 0) {
+      missing = missing + 1
+    }
+  }
+  missing
+}
+
+
+def coverValue(bits: Int, g: Graph): Double = {
+  val size = popcount(bits, g.numVertices)
+  val missing = uncoveredEdges(bits, g)
+  val penalty = (g.numVertices + 1) * missing
+  (size + penalty).toDouble
+}
+
+
+// Execute MVC with a cost-per-edge phase and measurement.
+
+def executeVertexCover(a: Ansatz, g: Graph): Double / {prepare, costEdge, mixer, expect} = {
+  do prepare(g.numVertices)
+  a.layers.foreach { l =>
+    g.edges.foreach { e =>
+      do costEdge(l.gamma, e.u, e.v, e.w)
+    }
+    do mixer(l.beta)
+  }
+  do expect { value => coverValue(value, g) }
+}

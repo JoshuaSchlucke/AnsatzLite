@@ -1,0 +1,71 @@
+module src/handlers/noise
+
+import random
+import array
+import src/lib
+import src/handlers/statevector
+import src/qaoa/effects
+
+// Simple bit-flip noise applied after each operator.
+
+def applyNoise(state: Array[Complex], qubits: Int, p: Double): Unit / random = {
+  if (p <= 0.0) ()
+  else {
+    var q = 0
+    while (q < qubits) {
+      val r = random::randomDouble()
+      if (r < p) {
+        applyX(state, q)
+      }
+      q = q + 1
+    }
+  }
+}
+
+// Noisy statevector backend using deterministic PRNG.
+
+def withNoisyStatevector(p: Double, seed: Int) { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double = {
+  var out = 0.0
+  random::minstd(seed) {
+    var qubits = 0
+    var state: Array[Complex] = array(0, zero())
+
+    def run(): Double = try { prog() }
+      with prepare { n =>
+        qubits = n
+        state = plusState(n)
+        resume(())
+      }
+      with cost { gamma =>
+        applyRzAll(state, qubits, gamma)
+        applyNoise(state, qubits, p)
+        resume(())
+      }
+      with costEdge { (gamma, u, v, w) =>
+        applyZZ(state, u, v, gamma * w)
+        applyNoise(state, qubits, p)
+        resume(())
+      }
+      with costPredicate { gamma =>
+        resume { {predicate} =>
+          applyPredicatePhase(state, gamma) { predicate }
+          applyNoise(state, qubits, p)
+          ()
+        }
+      }
+      with mixer { beta =>
+        applyRxAll(state, qubits, beta)
+        applyNoise(state, qubits, p)
+        resume(())
+      }
+      with expect {
+        resume { {value} =>
+          val energy = expectValue(state) { value }
+          energy
+        }
+      }
+
+    out = run()
+  }
+  out
+}

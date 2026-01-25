@@ -1,0 +1,10 @@
+module src/qaoa/effects
+
+// QAOA DSL effects.
+
+effect prepare(qubits: Int): Unit
+effect cost(gamma: Double): Unit
+effect costEdge(gamma: Double, u: Int, v: Int, w: Double): Unit
+effect costPredicate(gamma: Double) { predicate: Int => Bool }: Unit
+effect mixer(beta: Double): Unit
+effect expect { value: Int => Double }: Double

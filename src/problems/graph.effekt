@@ -1,0 +1,21 @@
+module src/problems/graph
+
+record Edge(u: Int, v: Int, w: Double)
+record Graph(numVertices: Int, edges: List[Edge])
+
+// Minimal helpers for graphs.
+
+def emptyGraph(n: Int): Graph =
+  Graph(n, [])
+
+
+def addEdge(g: Graph, u: Int, v: Int, w: Double): Graph =
+  Graph(g.numVertices, Cons(Edge(u, v, w), g.edges))
+
+
+def edgeCount(g: Graph): Int =
+  g.edges.size
+
+
+def tinyGraph(): Graph =
+  Graph(2, [Edge(0, 1, 1.0)])
