@@ -1,0 +1,46 @@
+module src/handlers/pretty_print
+
+import src/qaoa/effects
+
+// Pretty-print handler that logs the structure of a program.
+
+
+def withPrettyPrint { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: List[String] = {
+  var lines: List[String] = Nil()
+
+  def add(line: String): Unit = {
+    lines = Cons(line, lines)
+  }
+
+  try { prog() }
+  with prepare { n =>
+    add("prepare " ++ n.show)
+    resume(())
+  }
+  with cost { gamma =>
+    add("cost " ++ gamma.show)
+    resume(())
+  }
+  with costEdge { (gamma, u, v, w) =>
+    add("costEdge " ++ gamma.show ++ " " ++ u.show ++ " " ++ v.show ++ " " ++ w.show)
+    resume(())
+  }
+  with costPredicate { gamma =>
+    resume { {predicate} =>
+      add("costPredicate " ++ gamma.show)
+      ()
+    }
+  }
+  with mixer { beta =>
+    add("mixer " ++ beta.show)
+    resume(())
+  }
+  with expect {
+    resume { {value} =>
+      add("expect")
+      0.0
+    }
+  }
+
+  lines.reverse
+}

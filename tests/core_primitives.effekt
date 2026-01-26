@@ -1,0 +1,86 @@
+module tests/core_primitives
+
+import test
+import result
+import exception
+import src/qaoa/types
+import src/problems/graph
+import src/lib
+
+// Core domain primitives: types, graphs, and complex arithmetic.
+
+def main() = mainSuite("Core primitives") {
+  test("layer and ansatz constructors") {
+    val l = layer(1.0, 2.0)
+    assertEqual(l.gamma, 1.0)
+    assertEqual(l.beta, 2.0)
+
+    val a = ansatz([l, layer(3.0, 4.0)])
+    assertEqual(depth(a), 2)
+  }
+
+  test("gamma/beta extraction") {
+    val a = ansatz([layer(1.0, 2.0), layer(3.0, 4.0)])
+    assertEqual(gammas(a), [1.0, 3.0])
+    assertEqual(betas(a), [2.0, 4.0])
+  }
+
+  test("graph helpers") {
+    val g = tinyGraph()
+    assertEqual(g.numVertices, 2)
+    assertEqual(edgeCount(g), 1)
+    g.edges match {
+      case Cons(Edge(u, v, w), Nil()) =>
+        assertEqual(u, 0)
+        assertEqual(v, 1)
+        assertEqual(w, 1.0)
+      case Nil() =>
+        assertTrue(false, "expected one edge")
+      case Cons(_, _) =>
+        assertTrue(false, "expected one edge")
+    }
+  }
+
+  test("graph presets") {
+    val g1 = result[Graph, WrongFormat] { graphFromName("small") }
+    g1 match {
+      case Success(g) => assertEqual(g.numVertices, 3)
+      case Error(_, msg) => assertTrue(false, msg)
+    }
+
+    val g2 = result[Graph, WrongFormat] { graphFromName("medium") }
+    g2 match {
+      case Success(g) => assertEqual(g.numVertices, 4)
+      case Error(_, msg) => assertTrue(false, msg)
+    }
+
+    val g3 = result[Graph, WrongFormat] { graphFromName("large") }
+    g3 match {
+      case Success(g) => assertEqual(g.numVertices, 6)
+      case Error(_, msg) => assertTrue(false, msg)
+    }
+  }
+
+  test("complex arithmetic") {
+    val a = Complex(1.0, 2.0)
+    val b = Complex(3.0, -1.0)
+
+    val sum = add(a, b)
+    assertEqual(sum.re, 4.0)
+    assertEqual(sum.im, 1.0)
+
+    val scaled = scale(a, 2.0)
+    assertEqual(scaled.re, 2.0)
+    assertEqual(scaled.im, 4.0)
+
+    val product = mul(a, b)
+    assertEqual(product.re, 5.0)
+    assertEqual(product.im, 5.0)
+
+    val conjA = conj(a)
+    assertEqual(conjA.re, 1.0)
+    assertEqual(conjA.im, -2.0)
+
+    assertEqual(abs2(a), 5.0)
+  }
+}

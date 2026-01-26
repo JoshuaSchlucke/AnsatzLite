@@ -1,0 +1,65 @@
+module src/handlers/shot_based
+
+import random
+import array
+import src/lib
+import src/handlers/statevector
+import src/qaoa/effects
+
+// Sample expectation values from the state distribution.
+def sampleExpect(state: Array[Complex], shots: Int) { value: Int => Double }: Double / random = {
+  if (shots <= 0) 0.0 else {
+    var sum = 0.0
+    var i = 0
+    while (i < shots) {
+      val idx = sampleIndex(state)
+      sum = sum + value(idx)
+      i = i + 1
+    }
+    sum / shots.toDouble
+  }
+}
+
+// Shot-based backend using deterministic PRNG.
+
+def withShots(shots: Int, seed: Int) { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double = {
+  var out = 0.0
+  seed.minstd {
+    var qubits = 0
+    var state: Array[Complex] = array(0, zero())
+
+    def run(): Double = try { prog() }
+      with prepare { n =>
+        qubits = n
+        state = plusState(n)
+        resume(())
+      }
+      with cost { gamma =>
+        applyRzAll(state, qubits, gamma)
+        resume(())
+      }
+      with costEdge { (gamma, u, v, w) =>
+        applyZZ(state, u, v, gamma * w)
+        resume(())
+      }
+      with costPredicate { gamma =>
+        resume { {predicate} =>
+          applyPredicatePhase(state, gamma) { predicate }
+          ()
+        }
+      }
+      with mixer { beta =>
+        applyRxAll(state, qubits, beta)
+        resume(())
+      }
+      with expect {
+        resume { {value} =>
+          val energy = sampleExpect(state, shots) { value }
+          energy
+        }
+      }
+
+    out = run()
+  }
+  out
+}

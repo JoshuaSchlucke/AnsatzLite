@@ -1,0 +1,19 @@
+module src/qaoa/dsl
+
+import src/qaoa/types
+import src/qaoa/effects
+import src/lib
+import effekt
+
+// Build and execute a QAOA program using effects.
+
+def execute(a: Ansatz, qubits: Int): Double / {prepare, cost, mixer, expect} = {
+  do prepare(qubits)
+  a.layers.foreach { l =>
+    do cost(l.gamma)
+    do mixer(l.beta)
+  }
+  do expect { value =>
+    if (bitAt(value, 0) == 0) 1.0 else -1.0
+  }
+}

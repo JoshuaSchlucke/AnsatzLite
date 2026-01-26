@@ -1,0 +1,119 @@
+module src/problems/sat
+
+import effekt
+import string
+import exception
+import partial
+import src/qaoa/types
+import src/qaoa/effects
+import src/lib
+
+// Max-SAT / k-SAT representation.
+
+type Literal {
+  Pos(idx: Int)
+  Neg(idx: Int)
+}
+
+type Clause = List[Literal]
+
+record Formula(numVars: Int, clauses: List[Clause])
+
+
+def litSatisfied(bits: Int, lit: Literal): Bool = lit match {
+  case Pos(i) => bitAt(bits, i) == 1
+  case Neg(i) => bitAt(bits, i) == 0
+}
+
+
+def clauseSatisfied(bits: Int, clause: Clause): Bool =
+  clause.any { lit => litSatisfied(bits, lit) }
+
+
+def satCount(bits: Int, f: Formula): Int = {
+  var count = 0
+  f.clauses.foreach { c =>
+    if (clauseSatisfied(bits, c)) { count = count + 1 }
+  }
+  count
+}
+
+// Helpers to build formulas.
+
+def pos(i: Int): Literal = Pos(i)
+
+def neg(i: Int): Literal = Neg(i)
+
+// Build a clause from integer literals: positive = x_i, negative = ¬x_i.
+// Example: [1, -2, 3] => (x1 ∨ ¬x2 ∨ x3)
+// Indices are 0-based.
+
+def clauseFromInts(lits: List[Int]): Clause =
+  lits.map { i => if (i < 0) Neg(0 - i - 1) else Pos(i) }
+
+// Deterministic k-SAT generator: cycles variables and alternates signs.
+
+def kSatCyclic(numVars: Int, numClauses: Int, k: Int): Formula = {
+  def clauseAt(idx: Int): Clause = {
+    var lits: List[Literal] = Nil()
+    var j = 0
+    while (j < k) {
+      val v = (idx + j).mod(numVars)
+      val sign = (idx + j).mod(2)
+      val lit = if (sign == 0) Pos(v) else Neg(v)
+      lits = Cons(lit, lits)
+      j = j + 1
+    }
+    lits.reverse
+  }
+
+  def build(n: Int, acc: List[Clause]): List[Clause] =
+    if (n < 0) acc
+    else build(n - 1, Cons(clauseAt(n), acc))
+
+  Formula(numVars, build(numClauses - 1, Nil()))
+}
+
+
+// Parse formula name: "tiny" or "k<k>-<m>[-<n>]".
+
+def formulaFromName(name: String): Formula / Exception[WrongFormat] = {
+  if (name == "tiny") tinyFormula()
+  else if (name.startsWith("k")) {
+    val body = name.substring(1)
+    val parts = body.split("-")
+    parts match {
+      case Cons(kStr, Cons(mStr, Cons(nStr, Nil()))) =>
+        val k = toIntStrict(kStr)
+        val m = toIntStrict(mStr)
+        val n = toIntStrict(nStr)
+        kSatCyclic(n, m, k)
+      case Cons(kStr, Cons(mStr, Nil())) =>
+        val k = toIntStrict(kStr)
+        val m = toIntStrict(mStr)
+        kSatCyclic(k + 1, m, k)
+      case _ =>
+        wrongFormat("Invalid formula: " ++ name)
+    }
+  } else {
+    wrongFormat("Invalid formula: " ++ name)
+  }
+}
+
+// Execute Max-SAT with clause phases and measurement.
+
+def executeMaxSat(a: Ansatz, f: Formula): Double / {prepare, costPredicate, mixer, expect} = {
+  do prepare(f.numVars)
+  a.layers.foreach { l =>
+    f.clauses.foreach { c =>
+      do costPredicate(l.gamma) { value => not(clauseSatisfied(value, c)) }
+    }
+    do mixer(l.beta)
+  }
+  do expect { value => satCount(value, f).toDouble }
+}
+
+// Tiny example formula (2-SAT): (x0 ∨ x1) ∧ (¬x0 ∨ x1)
+
+def tinyFormula(): Formula =
+  Formula(2, [[Pos(0), Pos(1)], [Neg(0), Pos(1)]])

@@ -1,3 +1,76 @@
 module src/lib
 
-def helloWorld(): String = "Hello, world!"
+import array
+import random
+import exception
+import string
+
+// Minimal math helpers (Complex numbers).
+
+record Complex(re: Double, im: Double)
+
+def real(x: Double): Complex = Complex(x, 0.0)
+def imag(y: Double): Complex = Complex(0.0, y)
+
+def zero(): Complex = Complex(0.0, 0.0)
+
+def one(): Complex = Complex(1.0, 0.0)
+
+def add(a: Complex, b: Complex): Complex =
+  Complex(a.re + b.re, a.im + b.im)
+
+def sub(a: Complex, b: Complex): Complex =
+  Complex(a.re - b.re, a.im - b.im)
+
+def scale(a: Complex, k: Double): Complex =
+  Complex(a.re * k, a.im * k)
+
+def mul(a: Complex, b: Complex): Complex =
+  Complex((a.re * b.re) - (a.im * b.im), (a.re * b.im) + (a.im * b.re))
+
+def conj(a: Complex): Complex =
+  Complex(a.re, 0.0 - a.im)
+
+def abs2(a: Complex): Double =
+  (a.re * a.re) + (a.im * a.im)
+
+def expI(theta: Double): Complex =
+  Complex(cos(theta), sin(theta))
+
+// Bit helpers for bitstring-encoded assignments.
+
+def bitAt(bits: Int, index: Int): Int =
+  bitwiseAnd(bitwiseShr(bits, index), 1)
+
+def popcount(bits: Int, n: Int): Int = {
+  var count = 0
+  var i = 0
+  while (i < n) {
+    count = count + bitAt(bits, i)
+    i = i + 1
+  }
+  count
+}
+
+// Parse helpers.
+
+def toIntStrict(s: String): Int / Exception[WrongFormat] =
+  try { s.toInt } with fail { () => wrongFormat("Invalid integer: '" ++ s ++ "'") }
+
+// Sampling helpers for statevector backends.
+
+def sampleIndex(state: Array[Complex]): Int / random = {
+  val r = random::randomDouble()
+  val size = state.size
+  var acc = 0.0
+  var chosen = -1
+  var i = 0
+  while (i < size) {
+    acc = acc + abs2(state.get(i))
+    if (chosen == -1 && r <= acc) {
+      chosen = i
+    }
+    i = i + 1
+  }
+  if (chosen == -1) size - 1 else chosen
+}

@@ -1,0 +1,32 @@
+module src/problems/maxcut
+
+import effekt
+import src/qaoa/types
+import src/qaoa/effects
+import src/problems/graph
+import src/lib
+
+def cutValue(bits: Int, g: Graph): Double = {
+  var sum = 0.0
+  g.edges.foreach { e =>
+    val a = bitAt(bits, e.u)
+    val b = bitAt(bits, e.v)
+    if (a != b) {
+      sum = sum + e.w
+    }
+  }
+  sum
+}
+
+// Execute a MaxCut QAOA program.
+
+def executeMaxCut(a: Ansatz, g: Graph): Double / {prepare, costEdge, mixer, expect} = {
+  do prepare(g.numVertices)
+  a.layers.foreach { l =>
+    g.edges.foreach { e =>
+      do costEdge(l.gamma, e.u, e.v, e.w)
+    }
+    do mixer(l.beta)
+  }
+  do expect { value => cutValue(value, g) }
+}

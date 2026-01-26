@@ -1,0 +1,160 @@
+module tests/cli_parse_validate
+
+import test
+import result
+import exception
+import src/cli/parse
+import src/cli/validate
+
+// Simple numeric helper for approximate comparisons.
+
+def abs(x: Double): Double =
+  if (x < 0.0) (0.0 - x) else x
+
+def assertApprox(obtained: Double, expected: Double) =
+  assertEqual(obtained, expected) { (x, y) => abs(x - y) <= 0.000000001 } { x => x.show }
+
+
+def assertError[A](r: Result[A, WrongFormat]): Unit / Assertion = r match {
+  case Error(_, _) => assertTrue(true)
+  case Success(_) => assertTrue(false, "expected error")
+}
+
+def unwrapDouble(r: Result[Double, WrongFormat], label: String): Double / Assertion = r match {
+  case Success(v) => v
+  case Error(_, msg) => { assertTrue(false, label ++ ": " ++ msg); 0.0 }
+}
+
+def unwrapList(r: Result[List[Double], WrongFormat], label: String): List[Double] / Assertion = r match {
+  case Success(v) => v
+  case Error(_, msg) => { assertTrue(false, label ++ ": " ++ msg); [] }
+}
+
+def unwrapConfig(r: Result[Config, WrongFormat], label: String): Config / Assertion = r match {
+  case Success(v) => v
+  case Error(_, msg) => { assertTrue(false, label ++ ": " ++ msg); defaultConfig() }
+}
+
+def main() = mainSuite("CLI parsing + validation") {
+  test("parseDouble basics") {
+    assertApprox(unwrapDouble(result[Double, WrongFormat] { parseDouble("1") }, "parseDouble 1"), 1.0)
+    assertApprox(unwrapDouble(result[Double, WrongFormat] { parseDouble("-2.5") }, "parseDouble -2.5"), -2.5)
+    assertApprox(unwrapDouble(result[Double, WrongFormat] { parseDouble(".5") }, "parseDouble .5"), 0.5)
+    assertApprox(unwrapDouble(result[Double, WrongFormat] { parseDouble("2.") }, "parseDouble 2."), 2.0)
+    assertApprox(unwrapDouble(result[Double, WrongFormat] { parseDouble("+3.25") }, "parseDouble +3.25"), 3.25)
+  }
+
+  test("parseDoubleList") {
+    val xs = unwrapList(result[List[Double], WrongFormat] { parseDoubleList("1,2.5,-0.5") }, "parseDoubleList")
+    assertEqual(xs, [1.0, 2.5, -0.5])
+  }
+
+  test("parseArgs + validate defaults") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] { validateConfig(parseArgs(["--p", "2"])) }, "parseArgs defaults")
+    assertEqual(cfg.p, 2)
+    assertEqual(cfg.gammas, [0.0, 0.0])
+    assertEqual(cfg.betas, [0.0, 0.0])
+  }
+
+  test("parseArgs full") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] { validateConfig(parseArgs([
+      "--p", "2",
+      "--gammas", "0.1,0.2",
+      "--betas", "0.3,0.4",
+      "--problem", "maxcut",
+      "--graph", "tiny"
+    ])) }, "parseArgs full")
+    assertEqual(cfg.p, 2)
+    assertEqual(cfg.gammas, [0.1, 0.2])
+    assertEqual(cfg.betas, [0.3, 0.4])
+  }
+
+  test("backend shots + num-shots") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] {
+      validateConfig(parseArgs(["--backend", "shots", "--num-shots", "500", "--seed", "42"]))
+    }, "shots config")
+    assertEqual(cfg.backend, "shots")
+    assertEqual(cfg.numShots, 500)
+    assertEqual(cfg.seed, 42)
+  }
+
+  test("backend noisy + noise-model") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] {
+      validateConfig(parseArgs(["--backend", "noisy", "--noise-model", "bitflip:0.25"]))
+    }, "noisy config")
+    assertEqual(cfg.backend, "noisy")
+    assertApprox(cfg.noiseProb, 0.25)
+  }
+
+  test("optimizer grid + steps") {
+    val cfg = unwrapConfig(result[Config, WrongFormat] {
+      validateConfig(parseArgs([
+        "--opt", "grid",
+        "--opt-steps", "7",
+        "--opt-init", "grid",
+        "--local-steps", "12",
+        "--local-step", "0.02",
+        "--local-decay", "0.7",
+        "--gamma-min", "0.1",
+        "--gamma-max", "1.2",
+        "--beta-min", "0.2",
+        "--beta-max", "0.8",
+        "--opt-verbose",
+        "--print-config"
+      ]))
+    }, "opt grid config")
+    assertEqual(cfg.opt, "grid")
+    assertEqual(cfg.optSteps, 7)
+    assertEqual(cfg.optInit, "grid")
+    assertEqual(cfg.localSteps, 12)
+    assertApprox(cfg.localStep, 0.02)
+    assertApprox(cfg.localDecay, 0.7)
+    assertApprox(cfg.gammaMin, 0.1)
+    assertApprox(cfg.gammaMax, 1.2)
+    assertApprox(cfg.betaMin, 0.2)
+    assertApprox(cfg.betaMax, 0.8)
+    assertEqual(cfg.optVerbose, true)
+    assertEqual(cfg.printConfig, true)
+  }
+
+  // CAREFUL: These tests where split because having too many in one test caused it to take too long to run.
+  test("validation errors 1") {
+    val bad1 = result[Config, WrongFormat] { validateConfig(parseArgs(["--p", "2", "--gammas", "0.1"])) }
+    assertError(bad1)
+
+    val bad2 = result[Config, WrongFormat] { validateConfig(parseArgs(["--problem", "foo"])) }
+    assertError(bad2)
+
+    val bad3 = result[Double, WrongFormat] { parseDouble("1..2") }
+    assertError(bad3)
+
+    val bad4 = result[Config, WrongFormat] { validateConfig(parseArgs(["--backend", "foo"])) }
+    assertError(bad4)
+
+    val bad5 = result[Config, WrongFormat] { validateConfig(parseArgs(["--opt", "foo"])) }
+    assertError(bad5)
+
+    val bad6 = result[Config, WrongFormat] { validateConfig(parseArgs(["--opt-steps", "0"])) }
+    assertError(bad6)
+  }
+
+  test("validation errors 2") {
+    val bad7 = result[Config, WrongFormat] { validateConfig(parseArgs(["--backend", "pretty", "--opt", "grid"])) }
+    assertError(bad7)
+
+    val bad8 = result[Config, WrongFormat] { validateConfig(parseArgs(["--gamma-min", "1.0", "--gamma-max", "0.5"])) }
+    assertError(bad8)
+
+    val bad9 = result[Config, WrongFormat] { validateConfig(parseArgs(["--beta-min", "1.0", "--beta-max", "0.5"])) }
+    assertError(bad9)
+
+    val bad10 = result[Config, WrongFormat] { validateConfig(parseArgs(["--opt-init", "foo"])) }
+    assertError(bad10)
+
+    val bad11 = result[Config, WrongFormat] { validateConfig(parseArgs(["--local-step", "0"])) }
+    assertError(bad11)
+
+    val bad12 = result[Config, WrongFormat] { validateConfig(parseArgs(["--local-decay", "1.2"])) }
+    assertError(bad12)
+  }
+}

@@ -1,0 +1,102 @@
+module src/cli/validate
+
+import list
+import string
+import exception
+import src/cli/parse
+
+// Validate and normalize CLI config.
+
+def parseNoiseModel(model: String): (String, Double) / Exception[WrongFormat] =
+  model.split(":") match {
+    case Cons("none", Nil()) => ("none", 0.0)
+    case Cons("bitflip", Nil()) => ("bitflip", 0.05)
+    case Cons("bitflip", Cons(pStr, Nil())) =>
+      val p = parseDouble(pStr)
+      if (p < 0.0 || p > 1.0) wrongFormat("noise probability must be in [0,1]")
+      else ("bitflip", p)
+    case _ => wrongFormat("unknown noise model: " ++ model)
+  }
+
+
+def validateConfig(cfg: Config): Config / Exception[WrongFormat] = cfg match {
+  case Config(problem, graph, formula, p, gammas, betas, backend, opt, optSteps, optInit, localSteps, localStep, localDecay, gammaMin, gammaMax, betaMin, betaMax, optVerbose, printConfig, numShots, noiseModel, _, seed) =>
+    if (p <= 0) wrongFormat("p must be >= 1")
+
+    val gs = if (gammas.size == 0) p.fill(0.0) else gammas
+    val bs = if (betas.size == 0) p.fill(0.0) else betas
+
+    if (gs.size != p) wrongFormat("gammas length must equal p")
+    if (bs.size != p) wrongFormat("betas length must equal p")
+
+    if (problem != "maxcut" && problem != "mis" && problem != "vertex-cover" && problem != "sat") {
+      wrongFormat("unknown problem: " ++ problem)
+    }
+
+    if (problem == "sat") {
+      if (not(formula == "tiny" || formula.startsWith("k"))) {
+        wrongFormat("unknown formula: " ++ formula)
+      }
+    } else {
+      if (graph != "tiny" && graph != "small" && graph != "medium" && graph != "large") {
+        wrongFormat("unknown graph: " ++ graph)
+      }
+    }
+
+    if (backend != "statevector" && backend != "shots" && backend != "noisy" && backend != "sampling" && backend != "pretty" && backend != "pretty-sample" && backend != "pretty+sample") {
+      wrongFormat("unknown backend: " ++ backend)
+    }
+
+    if ((backend == "shots" || backend == "sampling" || backend == "pretty-sample" || backend == "pretty+sample") && numShots <= 0) {
+      wrongFormat("num-shots must be >= 1 for shots/sampling backend")
+    }
+
+    if (opt != "none" && opt != "grid" && opt != "random" && opt != "local") {
+      wrongFormat("unknown optimizer: " ++ opt)
+    }
+
+    if (optSteps <= 0) {
+      wrongFormat("opt-steps must be >= 1")
+    }
+
+    if (optInit != "grid" && optInit != "random") {
+      wrongFormat("unknown opt-init: " ++ optInit)
+    }
+
+    if (localSteps <= 0) {
+      wrongFormat("local-steps must be >= 1")
+    }
+
+    if (localStep <= 0.0) {
+      wrongFormat("local-step must be > 0")
+    }
+
+    if (localDecay <= 0.0 || localDecay >= 1.0) {
+      wrongFormat("local-decay must be in (0,1)")
+    }
+
+    if (opt != "none" &&
+        (backend == "sampling" || backend == "pretty" || backend == "pretty-sample" || backend == "pretty+sample")) {
+      wrongFormat("optimizer requires numeric backend (statevector/shots/noisy)")
+    }
+
+    if (opt == "local" && (optInit != "grid" && optInit != "random")) {
+      wrongFormat("opt-init must be grid or random for local search")
+    }
+
+    if (gammaMin > gammaMax) {
+      wrongFormat("gamma-min must be <= gamma-max")
+    }
+
+    if (betaMin > betaMax) {
+      wrongFormat("beta-min must be <= beta-max")
+    }
+
+    val (nm, np) = parseNoiseModel(noiseModel)
+
+    if (seed < 0) {
+      wrongFormat("seed must be >= 0")
+    }
+
+    Config(problem, graph, formula, p, gs, bs, backend, opt, optSteps, optInit, localSteps, localStep, localDecay, gammaMin, gammaMax, betaMin, betaMax, optVerbose, printConfig, numShots, nm, np, seed)
+}

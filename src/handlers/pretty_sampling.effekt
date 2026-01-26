@@ -1,0 +1,71 @@
+module src/handlers/pretty_sampling
+
+import random
+import array
+import list
+import src/lib
+import src/handlers/statevector
+import src/handlers/sampling
+import src/qaoa/effects
+
+// Pretty + sampling handler: records structure and returns sampled bitstrings.
+
+record PrettySample(lines: List[String], samples: List[String])
+
+
+def withPrettySampling(shots: Int, seed: Int) { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: PrettySample = {
+  var lines: List[String] = Nil()
+  var samples: List[String] = Nil()
+
+  def add(line: String): Unit = {
+    lines = Cons(line, lines)
+  }
+
+  var _out = 0.0
+  seed.minstd {
+    var qubits = 0
+    var state: Array[Complex] = array(0, zero())
+
+    def run(): Double = try { prog() }
+      with prepare { n =>
+        add("prepare " ++ n.show)
+        qubits = n
+        state = plusState(n)
+        resume(())
+      }
+      with cost { gamma =>
+        add("cost " ++ gamma.show)
+        applyRzAll(state, qubits, gamma)
+        resume(())
+      }
+      with costEdge { (gamma, u, v, w) =>
+        add("costEdge " ++ gamma.show ++ " " ++ u.show ++ " " ++ v.show ++ " " ++ w.show)
+        applyZZ(state, u, v, gamma * w)
+        resume(())
+      }
+      with costPredicate { gamma =>
+        resume { {predicate} =>
+          add("costPredicate " ++ gamma.show)
+          applyPredicatePhase(state, gamma) { predicate }
+          ()
+        }
+      }
+      with mixer { beta =>
+        add("mixer " ++ beta.show)
+        applyRxAll(state, qubits, beta)
+        resume(())
+      }
+      with expect {
+        resume { {value} =>
+          add("expect")
+          val newSamples = sampleBitstrings(state, qubits, shots)
+          samples = samples.append(newSamples)
+          0.0
+        }
+      }
+
+    _out = run()
+  }
+
+  PrettySample(lines.reverse, samples)
+}

@@ -1,0 +1,60 @@
+module src/problems/graph
+
+import exception
+
+record Edge(u: Int, v: Int, w: Double)
+record Graph(numVertices: Int, edges: List[Edge])
+
+// Minimal helpers for graphs.
+
+def emptyGraph(n: Int): Graph =
+  Graph(n, [])
+
+
+def addEdge(g: Graph, u: Int, v: Int, w: Double): Graph =
+  Graph(g.numVertices, Cons(Edge(u, v, w), g.edges))
+
+
+def edgeCount(g: Graph): Int =
+  g.edges.size
+
+
+def tinyGraph(): Graph =
+  Graph(2, [Edge(0, 1, 1.0)])
+
+def smallGraph(): Graph =
+  Graph(3, [
+    Edge(0, 1, 1.0),
+    Edge(1, 2, 1.0),
+    Edge(0, 2, 1.0)
+  ])
+
+def mediumGraph(): Graph =
+  Graph(4, [
+    Edge(0, 1, 1.0),
+    Edge(1, 2, 1.0),
+    Edge(2, 3, 1.0),
+    Edge(3, 0, 1.0),
+    Edge(0, 2, 0.5),
+    Edge(1, 3, 0.5)
+  ])
+
+def largeGraph(): Graph =
+  Graph(6, [
+    Edge(0, 1, 1.0),
+    Edge(1, 2, 1.0),
+    Edge(2, 3, 1.0),
+    Edge(3, 4, 1.0),
+    Edge(4, 5, 1.0),
+    Edge(5, 0, 1.0),
+    Edge(0, 3, 0.5),
+    Edge(2, 5, 0.5)
+  ])
+
+def graphFromName(name: String): Graph / Exception[WrongFormat] = name match {
+  case "tiny" => tinyGraph()
+  case "small" => smallGraph()
+  case "medium" => mediumGraph()
+  case "large" => largeGraph()
+  case _ => wrongFormat("unknown graph: " ++ name)
+}

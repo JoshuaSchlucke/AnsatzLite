@@ -1,0 +1,38 @@
+module src/problems/mis
+
+import effekt
+import src/qaoa/types
+import src/qaoa/effects
+import src/problems/graph
+import src/lib
+
+// Max Independent Set on a graph.
+
+
+def isIndependent(bits: Int, g: Graph): Bool = {
+  var ok = true
+  g.edges.foreach { e =>
+    if (bitAt(bits, e.u) == 1 && bitAt(bits, e.v) == 1) {
+      ok = false
+    }
+  }
+  ok
+}
+
+
+def independentSetValue(bits: Int, g: Graph): Double =
+  if (isIndependent(bits, g)) popcount(bits, g.numVertices).toDouble else 0.0
+
+
+// Execute MIS with a cost-per-edge phase and measurement.
+
+def executeMIS(a: Ansatz, g: Graph): Double / {prepare, costEdge, mixer, expect} = {
+  do prepare(g.numVertices)
+  a.layers.foreach { l =>
+    g.edges.foreach { e =>
+      do costEdge(l.gamma, e.u, e.v, e.w)
+    }
+    do mixer(l.beta)
+  }
+  do expect { value => independentSetValue(value, g) }
+}

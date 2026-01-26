@@ -1,0 +1,136 @@
+module src/optimize/basic
+
+import random
+import list
+
+record SearchResult(params: List[Double], value: Double)
+
+
+def linspace(min: Double, max: Double, steps: Int): List[Double] = {
+  if (steps <= 1) [min]
+  else {
+    val step = (max - min) / (steps - 1).toDouble
+    var acc: List[Double] = Nil()
+    var i = 0
+    while (i < steps) {
+      acc = Cons(min + (i.toDouble * step), acc)
+      i = i + 1
+    }
+    acc.reverse
+  }
+}
+
+
+def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  val gammas = linspace(gammaMin, gammaMax, steps)
+  val betas = linspace(betaMin, betaMax, steps)
+
+  def searchLayer(i: Int, gsAcc: List[Double], bsAcc: List[Double])
+    : SearchResult = {
+    if (i == p) {
+      val params = gsAcc.reverse.append(bsAcc.reverse)
+      val value = objective(params)
+      SearchResult(params, value)
+    } else {
+      var best = SearchResult(Nil(), -1000000000000.0)
+      gammas.foreach { g =>
+        betas.foreach { b =>
+          val res = searchLayer(i + 1, Cons(g, gsAcc), Cons(b, bsAcc))
+          if (res.value > best.value) { best = res }
+        }
+      }
+      best
+    }
+  }
+
+  searchLayer(0, Nil(), Nil())
+}
+
+def clamp(x: Double, lo: Double, hi: Double): Double =
+  if (x < lo) lo else if (x > hi) hi else x
+
+// Local helper to avoid Exception[OutOfBounds]: localSearch can accept a short init list,
+// and missing indices default to 0.0 rather than raising.
+def getAt(xs: List[Double], index: Int, default: Double): Double = xs match {
+  case Nil() => default
+  case Cons(x, rest) => if (index == 0) x else getAt(rest, index - 1, default)
+}
+
+def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: Double, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  var params = init
+  var best = objective(params)
+  var step = step0
+  val total = p * 2
+  var round = 0
+  while (round < rounds) {
+    var improved = false
+    var i = 0
+    while (i < total) {
+      val cur = getAt(params, i, 0.0)
+      val lo = if (i < p) gammaMin else betaMin
+      val hi = if (i < p) gammaMax else betaMax
+      val up = clamp(cur + step, lo, hi)
+      val down = clamp(cur - step, lo, hi)
+
+      var bestHere = best
+      var bestParams = params
+
+      if (up != cur) {
+        val cand = params.updateAt(i) { _ => up }
+        val v = objective(cand)
+        if (v > bestHere) { bestHere = v; bestParams = cand }
+      }
+
+      if (down != cur) {
+        val cand = params.updateAt(i) { _ => down }
+        val v = objective(cand)
+        if (v > bestHere) { bestHere = v; bestParams = cand }
+      }
+
+      if (bestHere > best) {
+        best = bestHere
+        params = bestParams
+        improved = true
+      }
+
+      i = i + 1
+    }
+
+    if (not(improved)) {
+      step = step * decay
+    }
+    round = round + 1
+  }
+  SearchResult(params, best)
+}
+
+
+def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: List[Double] => Double }
+  : SearchResult = {
+  var best = SearchResult(Nil(), -1000000000000.0)
+  seed.minstd {
+    var i = 0
+    while (i < samples) {
+      var gs: List[Double] = Nil()
+      var bs: List[Double] = Nil()
+      var j = 0
+      while (j < p) {
+        val g = gammaMin + (gammaMax - gammaMin) * random::randomDouble()
+        val b = betaMin + (betaMax - betaMin) * random::randomDouble()
+        gs = Cons(g, gs)
+        bs = Cons(b, bs)
+        j = j + 1
+      }
+      val params = gs.reverse.append(bs.reverse)
+      val value = objective(params)
+      if (value > best.value) { best = SearchResult(params, value) }
+      i = i + 1
+    }
+  }
+  best
+}

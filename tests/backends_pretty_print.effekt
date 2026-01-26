@@ -1,0 +1,36 @@
+module tests/backends_pretty_print
+
+import test
+import src/qaoa/types
+import src/problems/graph
+import src/problems/maxcut
+import src/problems/sat
+import src/handlers/pretty_print
+
+
+def main() = mainSuite("Pretty print backend") {
+  test("pretty print maxcut structure") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.0, 0.0)])
+    val lines = withPrettyPrint { executeMaxCut(a, g) }
+    assertEqual(lines, [
+      "prepare 2",
+      "costEdge 0 0 1 1",
+      "mixer 0",
+      "expect"
+    ])
+  }
+
+  test("pretty print sat structure") {
+    val f = tinyFormula()
+    val a = ansatz([layer(0.0, 0.0)])
+    val lines = withPrettyPrint { executeMaxSat(a, f) }
+    assertEqual(lines, [
+      "prepare 2",
+      "costPredicate 0",
+      "costPredicate 0",
+      "mixer 0",
+      "expect"
+    ])
+  }
+}

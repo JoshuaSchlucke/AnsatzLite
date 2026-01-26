@@ -1,5 +1,260 @@
 module main // must be named same as the file!
 
-import src/lib
+import args
+import result
+import exception
+import list
+import src/cli/parse
+import src/cli/validate
+import src/qaoa/types
+import src/qaoa/effects
+import src/handlers/statevector
+import src/handlers/shot_based
+import src/handlers/noise
+import src/handlers/sampling
+import src/handlers/pretty_print
+import src/handlers/pretty_sampling
+import src/optimize/basic
+import src/problems/graph
+import src/problems/maxcut
+import src/problems/mis
+import src/problems/vertex_cover
+import src/problems/sat
 
-def main(): Unit = println(helloWorld())
+
+def printHelp(): Unit = {
+  println("AnsatzLite CLI")
+  println("")
+  println("Usage:")
+  println("  ansatz [options]")
+  println("")
+  println("Core options:")
+  println("  --help                 Show this help text")
+  println("  --problem <name>        maxcut | mis | vertex-cover | sat")
+  println("  --p <int>               number of layers")
+  println("  --gammas <list>         comma-separated list (length p)")
+  println("  --betas <list>          comma-separated list (length p)")
+  println("  --print-config          print resolved config before running")
+  println("")
+  println("Problem data:")
+  println("  --graph <name>          tiny | small | medium | large")
+  println("  --formula <name>        tiny | k<k>-<m>-<n>")
+  println("")
+  println("Backends:")
+  println("  --backend <name>        statevector | shots | noisy | sampling | pretty | pretty-sample | pretty+sample")
+  println("  --num-shots <int>       shots for shots/sampling backends")
+  println("  --noise-model <name>    none | bitflip[:p]")
+  println("  --seed <int>            RNG seed")
+  println("")
+  println("Optimization:")
+  println("  --opt <name>            none | grid | random | local")
+  println("  --opt-steps <int>       grid steps or random samples")
+  println("  --opt-init <name>       grid | random (for local search)")
+  println("  --local-steps <int>     number of local search rounds")
+  println("  --local-step <float>    initial coordinate step size")
+  println("  --local-decay <float>   step decay in (0,1)")
+  println("  --gamma-min <float>     search range lower bound")
+  println("  --gamma-max <float>     search range upper bound")
+  println("  --beta-min <float>      search range lower bound")
+  println("  --beta-max <float>      search range upper bound")
+  println("  --opt-verbose           print optimizer results")
+  println("")
+  println("Examples:")
+  println("  ansatz --problem maxcut --graph medium --p 1 --gammas 0.2 --betas 0.4")
+  println("  ansatz --problem sat --formula k3-10-6 --p 1 --gammas 0.2 --betas 0.4")
+  println("  ansatz --opt grid --opt-steps 5 --opt-verbose --p 1 --problem maxcut --graph tiny")
+}
+
+// Build layers from parameter lists.
+def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) match {
+  case (Nil(), Nil()) => Nil()
+  case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
+  case _ => Nil()
+}
+
+def layersFromParams(params: List[Double], p: Int): List[Layer] = {
+  val gs = params.take(p)
+  val bs = params.drop(p)
+  buildLayers(gs, bs)
+}
+
+def showDoubleList(xs: List[Double]): String = {
+  var out = "["
+  var first = true
+  xs.foreach { v =>
+    if (first) {
+      out = out ++ v.show
+      first = false
+    } else {
+      out = out ++ ", " ++ v.show
+    }
+  }
+  out ++ "]"
+}
+
+def printConfig(cfg: Config): Unit = {
+  println("config:")
+  println("  problem=" ++ cfg.problem)
+  println("  graph=" ++ cfg.graph)
+  println("  formula=" ++ cfg.formula)
+  println("  p=" ++ cfg.p.show)
+  println("  gammas=" ++ showDoubleList(cfg.gammas))
+  println("  betas=" ++ showDoubleList(cfg.betas))
+  println("  backend=" ++ cfg.backend)
+  println("  numShots=" ++ cfg.numShots.show)
+  println("  noiseModel=" ++ cfg.noiseModel)
+  println("  noiseProb=" ++ cfg.noiseProb.show)
+  println("  seed=" ++ cfg.seed.show)
+  println("  opt=" ++ cfg.opt)
+  println("  optSteps=" ++ cfg.optSteps.show)
+  println("  optInit=" ++ cfg.optInit)
+  println("  localSteps=" ++ cfg.localSteps.show)
+  println("  localStep=" ++ cfg.localStep.show)
+  println("  localDecay=" ++ cfg.localDecay.show)
+  println("  gammaRange=[" ++ cfg.gammaMin.show ++ ", " ++ cfg.gammaMax.show ++ "]")
+  println("  betaRange=[" ++ cfg.betaMin.show ++ ", " ++ cfg.betaMax.show ++ "]")
+  println("  optVerbose=" ++ cfg.optVerbose.show)
+}
+
+def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
+  def evalParams(params: List[Double]): Double = {
+    val layers = layersFromParams(params, cfg.p)
+    val a = ansatz(layers)
+    objective(a)
+  }
+
+  cfg.opt match {
+    case "grid" =>
+      val res = gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
+        println("opt=grid best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
+    case "random" =>
+      val res = randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
+        println("opt=random best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
+    case "local" =>
+      val init =
+        if (cfg.optInit == "grid")
+          gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+        else
+          randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      val res = localSearch(cfg.p, init.params, cfg.localSteps, cfg.localStep, cfg.localDecay, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
+      if (cfg.optVerbose) {
+        val initGs = init.params.take(cfg.p)
+        val initBs = init.params.drop(cfg.p)
+        println("opt=local init=" ++ cfg.optInit ++ " value=" ++ init.value.show ++ " gammas=" ++ showDoubleList(initGs) ++ " betas=" ++ showDoubleList(initBs))
+        val gs = res.params.take(cfg.p)
+        val bs = res.params.drop(cfg.p)
+        println("opt=local best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
+      }
+      layersFromParams(res.params, cfg.p)
+    case _ => buildLayers(cfg.gammas, cfg.betas)
+  }
+}
+
+
+def runWithBackend(cfg: Config) { program: () => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: Double =
+  cfg.backend match {
+    case "statevector" => withStatevector { program() }
+    case "shots" => withShots(cfg.numShots, cfg.seed) { program() }
+    case "noisy" => withNoisyStatevector(cfg.noiseProb, cfg.seed) { program() }
+    case _ => 0.0
+  }
+
+def runAndPrint(cfg: Config) { program: () => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: Unit =
+  cfg.backend match {
+    case "sampling" =>
+      val samples = withSampling(cfg.numShots, cfg.seed) { program() }
+      samples.foreach { s => println(s) }
+    case "pretty-sample" =>
+      val ps = withPrettySampling(cfg.numShots, cfg.seed) { program() }
+      println("pretty:")
+      ps.lines.foreach { l => println(l) }
+      println("samples:")
+      ps.samples.foreach { s => println(s) }
+    case "pretty+sample" =>
+      val ps = withPrettySampling(cfg.numShots, cfg.seed) { program() }
+      println("pretty:")
+      ps.lines.foreach { l => println(l) }
+      println("samples:")
+      ps.samples.foreach { s => println(s) }
+    case "pretty" =>
+      val lines = withPrettyPrint { program() }
+      lines.foreach { l => println(l) }
+    case _ =>
+      val out = runWithBackend(cfg) { program() }
+      println("result=" ++ out.show)
+  }
+
+// MVP entrypoint: parse args and run a problem instance.
+
+def main() = {
+  val argsList = args::commandLineArgs()
+  if (argsList.any { a => a == "--help" || a == "-h" }) {
+    printHelp()
+  } else {
+    val cfgRes = result[Config, WrongFormat] { validateConfig(parseArgs(argsList)) }
+
+    cfgRes match {
+      case Success(cfg) =>
+        if (cfg.printConfig) { printConfig(cfg) }
+        cfg.problem match {
+          case "maxcut" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMaxCut(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "mis" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMIS(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "vertex-cover" =>
+            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
+            gRes match {
+              case Success(g) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeVertexCover(a, g) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case "sat" =>
+            val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
+            fRes match {
+              case Success(f) =>
+                val layers =
+                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
+                val a = ansatz(layers)
+                runAndPrint(cfg) { () => executeMaxSat(a, f) }
+              case Error(_, msg) => println("error: " ++ msg)
+            }
+          case _ => ()
+        }
+      case Error(_, msg) =>
+        println("error: " ++ msg)
+    }
+  }
+}

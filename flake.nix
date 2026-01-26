@@ -20,10 +20,22 @@
         effekt-lib = effekt-nix.lib.${system};
 
         ## Project configuration
-        pname = "AnsatzLite";         # package name
-        version = "0.1.0";                 # package version
+        pname = "ansatz";         # package name
+        version = "0.1.1";                 # package version
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
-        testFiles = [ "src/test.effekt" ]; # relative paths to tests (as a string)
+        testFiles = [
+          "tests/core_primitives.effekt"
+          "tests/backends_statevector.effekt"
+          "tests/backends_sampling.effekt"
+          "tests/backends_sampling_noise.effekt"
+          "tests/backends_pretty_print.effekt"
+          "tests/backends_pretty_sampling.effekt"
+          "tests/problems_maxcut.effekt"
+          "tests/cli_parse_validate.effekt"
+          "tests/optimize_search.effekt"
+          "tests/problems_graph.effekt"
+          "tests/problems_sat.effekt"
+        ]; # relative paths to tests (as a string)
 
         ## Effekt configuration
         effektConfig = {

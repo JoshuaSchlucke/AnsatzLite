@@ -1,0 +1,25 @@
+module tests/problems_graph
+
+import test
+import src/problems/graph
+import src/problems/mis
+import src/problems/vertex_cover
+
+
+def main() = mainSuite("Graph problems") {
+  test("MIS value on tiny graph") {
+    val g = tinyGraph()
+    assertEqual(independentSetValue(0, g), 0.0)
+    assertEqual(independentSetValue(1, g), 1.0)
+    assertEqual(independentSetValue(2, g), 1.0)
+    assertEqual(independentSetValue(3, g), 0.0)
+  }
+
+  test("Vertex cover value on tiny graph") {
+    val g = tinyGraph()
+    assertEqual(coverValue(0, g), 3.0)
+    assertEqual(coverValue(1, g), 1.0)
+    assertEqual(coverValue(2, g), 1.0)
+    assertEqual(coverValue(3, g), 2.0)
+  }
+}

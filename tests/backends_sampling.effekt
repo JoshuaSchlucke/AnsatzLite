@@ -1,0 +1,51 @@
+module tests/backends_sampling
+
+import test
+import string
+import src/qaoa/types
+import src/problems/graph
+import src/problems/maxcut
+import src/handlers/sampling
+
+
+def isBitstring(s: String, n: Int): Bool = {
+  if (s.length != n) false
+  else {
+    var ok = true
+    var i = 0
+    while (i < n) {
+      val c = s.unsafeCharAt(i)
+      if (c != '0' && c != '1') { ok = false }
+      i = i + 1
+    }
+    ok
+  }
+}
+
+
+def allBitstrings(xs: List[String], n: Int): Bool = {
+  var ok = true
+  xs.foreach { s =>
+    if (not(isBitstring(s, n))) { ok = false }
+  }
+  ok
+}
+
+
+def main() = mainSuite("Sampling backend") {
+  test("samples are bitstrings of expected length") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.0, 0.0)])
+    val samples = withSampling(50, 123) { executeMaxCut(a, g) }
+    assertEqual(samples.size, 50)
+    assertTrue(allBitstrings(samples, 2))
+  }
+
+  test("sampling is deterministic for a seed") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.2, 0.4)])
+    val s1 = withSampling(20, 999) { executeMaxCut(a, g) }
+    val s2 = withSampling(20, 999) { executeMaxCut(a, g) }
+    assertEqual(s1, s2)
+  }
+}
