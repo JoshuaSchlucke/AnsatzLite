@@ -44,10 +44,10 @@ This keeps problems and DSLs pure, and makes backends swap-in compatible.
 
 ## Testing
 
-Run all tests (fzf):
+Run all tests:
 
 ```bash
-effekt tests/**
+effekt tests/*
 ```
 
 ## Building
