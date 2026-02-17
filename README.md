@@ -47,10 +47,10 @@ ansatz --opt grid --opt-steps 5 --opt-verbose --p 1 --problem maxcut --graph tin
 
 ## Testing
 
-Run all tests: (fzf)
+Run all tests:
 
 ```bash
-effekt tests/**
+effekt tests/*
 ```
 
 ## Documentation
