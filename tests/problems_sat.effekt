@@ -7,9 +7,6 @@ import src/problems/sat
 
 // Simple numeric helper for approximate comparisons.
 
-def abs(x: Double): Double =
-  if (x < 0.0) (0.0 - x) else x
-
 def assertApprox(obtained: Double, expected: Double, tol: Double) =
   assertEqual(obtained, expected) { (x, y) => abs(x - y) <= tol } { x => x.show }
 

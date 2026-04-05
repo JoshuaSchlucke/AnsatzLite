@@ -1,0 +1,58 @@
+module tests/backends_trace
+
+import test
+import src/qaoa/types
+import src/problems/graph
+import src/problems/maxcut
+import src/handlers/trace
+import src/handlers/statevector
+
+
+def main() = mainSuite("Trace handlers") {
+  test("noTracing ignores trace messages") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.5, 0.3)])
+    val result = noTracing {
+      withStatevectorTraced { executeMaxCut(a, g) }
+    }
+    assertTrue(result > 0.0)
+  }
+
+  test("withTracing collects trace messages") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.5, 0.3)])
+    val (result, lines) = withTracing {
+      withStatevectorTraced { executeMaxCut(a, g) }
+    }
+    assertTrue(result > 0.0)
+    assertEqual(lines, [
+      "prepare 2",
+      "costEdge 0.5 0 1 1",
+      "mixer 0.3",
+      "expect"
+    ])
+  }
+
+  test("withStatevectorTraced with noTracing equals withStatevector") {
+    val g = tinyGraph()
+    val a = ansatz([layer(0.5, 0.3)])
+    val resultTraced = noTracing {
+      withStatevectorTraced { executeMaxCut(a, g) }
+    }
+    val resultNormal = withStatevector { executeMaxCut(a, g) }
+    assertEqual(resultTraced, resultNormal)
+  }
+
+  test("trace effect can be handled manually") {
+    var count = 0
+    try {
+      do trace("message 1")
+      do trace("message 2")
+      do trace("message 3")
+    } with trace { _ =>
+      count = count + 1
+      resume(())
+    }
+    assertEqual(count, 3)
+  }
+}

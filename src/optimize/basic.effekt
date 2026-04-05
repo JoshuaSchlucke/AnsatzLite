@@ -2,39 +2,47 @@ module src/optimize/basic
 
 import random
 import list
+import array
 
-record SearchResult(params: List[Double], value: Double)
+record SearchResult(params: Array[Double], value: Double)
 
 
-def linspace(min: Double, max: Double, steps: Int): List[Double] = {
-  if (steps <= 1) [min]
-  else {
+def linspace(min: Double, max: Double, steps: Int): Array[Double] = {
+  if (steps <= 1) {
+    val arr = array(1, min)
+    arr
+  } else {
     val step = (max - min) / (steps - 1).toDouble
-    var acc: List[Double] = Nil()
-    var i = 0
-    while (i < steps) {
-      acc = Cons(min + (i.toDouble * step), acc)
-      i = i + 1
-    }
-    acc.reverse
+    array::build(steps) { i => min + (i.toDouble * step) }
   }
 }
 
 
+def listGet(xs: List[Double], index: Int, default: Double): Double = xs match {
+  case Nil() => default
+  case Cons(x, rest) => if (index == 0) x else listGet(rest, index - 1, default)
+}
+
 def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
-  { objective: List[Double] => Double }
+  { objective: Array[Double] => Double }
   : SearchResult = {
   val gammas = linspace(gammaMin, gammaMax, steps)
   val betas = linspace(betaMin, betaMax, steps)
+  val total = p * 2
 
   def searchLayer(i: Int, gsAcc: List[Double], bsAcc: List[Double])
     : SearchResult = {
     if (i == p) {
-      val params = gsAcc.reverse.append(bsAcc.reverse)
+      val gsList = gsAcc.reverse
+      val bsList = bsAcc.reverse
+      val params = array::build(total) { idx =>
+        if (idx < p) listGet(gsList, idx, 0.0)
+        else listGet(bsList, idx - p, 0.0)
+      }
       val value = objective(params)
       SearchResult(params, value)
     } else {
-      var best = SearchResult(Nil(), -1000000000000.0)
+      var best = SearchResult(array(0, 0.0), -1000000000000.0)
       gammas.foreach { g =>
         betas.foreach { b =>
           val res = searchLayer(i + 1, Cons(g, gsAcc), Cons(b, bsAcc))
@@ -51,26 +59,22 @@ def gridSearch(p: Int, steps: Int, gammaMin: Double, gammaMax: Double, betaMin: 
 def clamp(x: Double, lo: Double, hi: Double): Double =
   if (x < lo) lo else if (x > hi) hi else x
 
-// Local helper to avoid Exception[OutOfBounds]: localSearch can accept a short init list,
-// and missing indices default to 0.0 rather than raising.
-def getAt(xs: List[Double], index: Int, default: Double): Double = xs match {
-  case Nil() => default
-  case Cons(x, rest) => if (index == 0) x else getAt(rest, index - 1, default)
-}
 
-def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: Double, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
-  { objective: List[Double] => Double }
+def localSearch(p: Int, init: Array[Double], rounds: Int, step0: Double, decay: Double, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
+  { objective: Array[Double] => Double }
   : SearchResult = {
-  var params = init
+  val total = p * 2
+  var params = array::build(total) { i =>
+    if (i < init.size) init.get(i) else 0.0
+  }
   var best = objective(params)
   var step = step0
-  val total = p * 2
   var round = 0
   while (round < rounds) {
     var improved = false
     var i = 0
     while (i < total) {
-      val cur = getAt(params, i, 0.0)
+      val cur = params.get(i)
       val lo = if (i < p) gammaMin else betaMin
       val hi = if (i < p) gammaMax else betaMax
       val up = clamp(cur + step, lo, hi)
@@ -80,13 +84,15 @@ def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: D
       var bestParams = params
 
       if (up != cur) {
-        val cand = params.updateAt(i) { _ => up }
+        val cand = array::copy(params)
+        cand.set(i, up)
         val v = objective(cand)
         if (v > bestHere) { bestHere = v; bestParams = cand }
       }
 
       if (down != cur) {
-        val cand = params.updateAt(i) { _ => down }
+        val cand = array::copy(params)
+        cand.set(i, down)
         val v = objective(cand)
         if (v > bestHere) { bestHere = v; bestParams = cand }
       }
@@ -110,23 +116,22 @@ def localSearch(p: Int, init: List[Double], rounds: Int, step0: Double, decay: D
 
 
 def randomSearch(p: Int, samples: Int, seed: Int, gammaMin: Double, gammaMax: Double, betaMin: Double, betaMax: Double)
-  { objective: List[Double] => Double }
+  { objective: Array[Double] => Double }
   : SearchResult = {
-  var best = SearchResult(Nil(), -1000000000000.0)
+  val total = p * 2
+  var best = SearchResult(array(0, 0.0), -1000000000000.0)
   seed.minstd {
     var i = 0
     while (i < samples) {
-      var gs: List[Double] = Nil()
-      var bs: List[Double] = Nil()
+      val params = array(total, 0.0)
       var j = 0
       while (j < p) {
         val g = gammaMin + (gammaMax - gammaMin) * random::randomDouble()
         val b = betaMin + (betaMax - betaMin) * random::randomDouble()
-        gs = Cons(g, gs)
-        bs = Cons(b, bs)
+        params.set(j, g)
+        params.set(j + p, b)
         j = j + 1
       }
-      val params = gs.reverse.append(bs.reverse)
       val value = objective(params)
       if (value > best.value) { best = SearchResult(params, value) }
       i = i + 1

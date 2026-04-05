@@ -1,9 +1,10 @@
-module main // must be named same as the file!
+module main
 
 import args
 import result
 import exception
 import list
+import array
 import src/cli/parse
 import src/cli/validate
 import src/qaoa/types
@@ -65,17 +66,21 @@ def printHelp(): Unit = {
   println("  ansatz --opt grid --opt-steps 5 --opt-verbose --p 1 --problem maxcut --graph tiny")
 }
 
-// Build layers from parameter lists.
-def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] = (gs, bs) match {
-  case (Nil(), Nil()) => Nil()
-  case (Cons(g, gs1), Cons(b, bs1)) => Cons(layer(g, b), buildLayers(gs1, bs1))
-  case _ => Nil()
-}
+def buildLayers(gs: List[Double], bs: List[Double]): List[Layer] =
+  list::zipWith(gs, bs) { (g, b) => layer(g, b) }
 
 def layersFromParams(params: List[Double], p: Int): List[Layer] = {
-  val gs = params.take(p)
-  val bs = params.drop(p)
+  val (gs, bs) = params.splitAt(p)
   buildLayers(gs, bs)
+}
+
+def layersFromArray(params: Array[Double], p: Int): List[Layer] = {
+  val (gs, bs) = params.toList.splitAt(p)
+  buildLayers(gs, bs)
+}
+
+def splitArray(params: Array[Double], p: Int): (List[Double], List[Double]) = {
+  params.toList.splitAt(p)
 }
 
 def showDoubleList(xs: List[Double]): String = {
@@ -117,8 +122,8 @@ def printConfig(cfg: Config): Unit = {
 }
 
 def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
-  def evalParams(params: List[Double]): Double = {
-    val layers = layersFromParams(params, cfg.p)
+  def evalParams(params: Array[Double]): Double = {
+    val layers = layersFromArray(params, cfg.p)
     val a = ansatz(layers)
     objective(a)
   }
@@ -127,19 +132,17 @@ def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
     case "grid" =>
       val res = gridSearch(cfg.p, cfg.optSteps, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val gs = res.params.take(cfg.p)
-        val bs = res.params.drop(cfg.p)
+        val (gs, bs) = splitArray(res.params, cfg.p)
         println("opt=grid best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
-      layersFromParams(res.params, cfg.p)
+      layersFromArray(res.params, cfg.p)
     case "random" =>
       val res = randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val gs = res.params.take(cfg.p)
-        val bs = res.params.drop(cfg.p)
+        val (gs, bs) = splitArray(res.params, cfg.p)
         println("opt=random best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
-      layersFromParams(res.params, cfg.p)
+      layersFromArray(res.params, cfg.p)
     case "local" =>
       val init =
         if (cfg.optInit == "grid")
@@ -148,14 +151,12 @@ def optimizeLayers(cfg: Config) { objective: Ansatz => Double }: List[Layer] = {
           randomSearch(cfg.p, cfg.optSteps, cfg.seed, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       val res = localSearch(cfg.p, init.params, cfg.localSteps, cfg.localStep, cfg.localDecay, cfg.gammaMin, cfg.gammaMax, cfg.betaMin, cfg.betaMax) { evalParams }
       if (cfg.optVerbose) {
-        val initGs = init.params.take(cfg.p)
-        val initBs = init.params.drop(cfg.p)
+        val (initGs, initBs) = splitArray(init.params, cfg.p)
         println("opt=local init=" ++ cfg.optInit ++ " value=" ++ init.value.show ++ " gammas=" ++ showDoubleList(initGs) ++ " betas=" ++ showDoubleList(initBs))
-        val gs = res.params.take(cfg.p)
-        val bs = res.params.drop(cfg.p)
+        val (gs, bs) = splitArray(res.params, cfg.p)
         println("opt=local best=" ++ res.value.show ++ " gammas=" ++ showDoubleList(gs) ++ " betas=" ++ showDoubleList(bs))
       }
-      layersFromParams(res.params, cfg.p)
+      layersFromArray(res.params, cfg.p)
     case _ => buildLayers(cfg.gammas, cfg.betas)
   }
 }
@@ -194,67 +195,47 @@ def runAndPrint(cfg: Config) { program: () => Double / {prepare, cost, costEdge,
       println("result=" ++ out.show)
   }
 
-// MVP entrypoint: parse args and run a problem instance.
+def reportErrors[R] { prog: => R / Exception[WrongFormat] }: Option[R] =
+  try { Some(prog()) }
+  with raise[WrongFormat] { (_, msg) =>
+    println("error: " ++ msg)
+    None()
+  }
+
+def runGraphProblem(cfg: Config) { execute: (Ansatz, Graph) => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} }: Unit / Exception[WrongFormat] = {
+  val g = graphFromName(cfg.graph)
+  val layers =
+    if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+    else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => execute(a, g) } }
+  val a = ansatz(layers)
+  runAndPrint(cfg) { () => execute(a, g) }
+}
 
 def main() = {
   val argsList = args::commandLineArgs()
   if (argsList.any { a => a == "--help" || a == "-h" }) {
     printHelp()
   } else {
-    val cfgRes = result[Config, WrongFormat] { validateConfig(parseArgs(argsList)) }
-
-    cfgRes match {
-      case Success(cfg) =>
-        if (cfg.printConfig) { printConfig(cfg) }
-        cfg.problem match {
-          case "maxcut" =>
-            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-            gRes match {
-              case Success(g) =>
-                val layers =
-                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxCut(a, g) } }
-                val a = ansatz(layers)
-                runAndPrint(cfg) { () => executeMaxCut(a, g) }
-              case Error(_, msg) => println("error: " ++ msg)
-            }
-          case "mis" =>
-            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-            gRes match {
-              case Success(g) =>
-                val layers =
-                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMIS(a, g) } }
-                val a = ansatz(layers)
-                runAndPrint(cfg) { () => executeMIS(a, g) }
-              case Error(_, msg) => println("error: " ++ msg)
-            }
-          case "vertex-cover" =>
-            val gRes = result[Graph, WrongFormat] { graphFromName(cfg.graph) }
-            gRes match {
-              case Success(g) =>
-                val layers =
-                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeVertexCover(a, g) } }
-                val a = ansatz(layers)
-                runAndPrint(cfg) { () => executeVertexCover(a, g) }
-              case Error(_, msg) => println("error: " ++ msg)
-            }
-          case "sat" =>
-            val fRes = result[Formula, WrongFormat] { formulaFromName(cfg.formula) }
-            fRes match {
-              case Success(f) =>
-                val layers =
-                  if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
-                  else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
-                val a = ansatz(layers)
-                runAndPrint(cfg) { () => executeMaxSat(a, f) }
-              case Error(_, msg) => println("error: " ++ msg)
-            }
-          case _ => ()
-        }
-      case Error(_, msg) =>
-        println("error: " ++ msg)
+    reportErrors {
+      val cfg = validateConfig(parseArgs(argsList))
+      if (cfg.printConfig) { printConfig(cfg) }
+      cfg.problem match {
+        case "maxcut" =>
+          runGraphProblem(cfg) { (a, g) => executeMaxCut(a, g) }
+        case "mis" =>
+          runGraphProblem(cfg) { (a, g) => executeMIS(a, g) }
+        case "vertex-cover" =>
+          runGraphProblem(cfg) { (a, g) => executeVertexCover(a, g) }
+        case "sat" =>
+          val f = formulaFromName(cfg.formula)
+          val layers =
+            if (cfg.opt == "none") buildLayers(cfg.gammas, cfg.betas)
+            else optimizeLayers(cfg) { a => runWithBackend(cfg) { () => executeMaxSat(a, f) } }
+          val a = ansatz(layers)
+          runAndPrint(cfg) { () => executeMaxSat(a, f) }
+        case _ => ()
+      }
     }
+    ()
   }
 }

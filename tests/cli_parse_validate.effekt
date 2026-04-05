@@ -6,14 +6,8 @@ import exception
 import src/cli/parse
 import src/cli/validate
 
-// Simple numeric helper for approximate comparisons.
-
-def abs(x: Double): Double =
-  if (x < 0.0) (0.0 - x) else x
-
 def assertApprox(obtained: Double, expected: Double) =
   assertEqual(obtained, expected) { (x, y) => abs(x - y) <= 0.000000001 } { x => x.show }
-
 
 def assertError[A](r: Result[A, WrongFormat]): Unit / Assertion = r match {
   case Error(_, _) => assertTrue(true)
@@ -117,7 +111,6 @@ def main() = mainSuite("CLI parsing + validation") {
     assertEqual(cfg.printConfig, true)
   }
 
-  // CAREFUL: These tests where split because having too many in one test caused it to take too long to run.
   test("validation errors 1") {
     val bad1 = result[Config, WrongFormat] { validateConfig(parseArgs(["--p", "2", "--gammas", "0.1"])) }
     assertError(bad1)

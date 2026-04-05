@@ -128,16 +128,6 @@ def withSeed(cfg: Config, seed: Int): Config = cfg match {
 
 // Numeric parsing (simple decimal, optional sign).
 
-def pow10(n: Int): Double = {
-  var acc = 1.0
-  var i = 0
-  while (i < n) {
-    acc = acc * 10.0
-    i = i + 1
-  }
-  acc
-}
-
 def parseDouble(raw: String): Double / Exception[WrongFormat] = {
   val s = raw.trim
   if (s.length == 0) wrongFormat("Empty number")
@@ -154,7 +144,7 @@ def parseDouble(raw: String): Double / Exception[WrongFormat] = {
     if (part.length == 0) 0.0
     else {
       val fracInt = toIntStrict(part)
-      fracInt.toDouble / pow10(part.length)
+      fracInt.toDouble / pow(10.0, part.length.toDouble)
     }
 
   val parts = body.split(".")

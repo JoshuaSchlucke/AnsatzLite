@@ -4,8 +4,7 @@ import effekt
 import array
 import src/lib
 import src/qaoa/effects
-
-// Minimal statevector backend (single-qubit gates applied to all qubits).
+import src/handlers/trace
 
 def pow2(n: Int): Int =
   bitwiseShl(1, n)
@@ -117,8 +116,6 @@ def expectZ0(state: Array[Complex]): Double =
     if (bitwiseAnd(value, 1) == 0) 1.0 else -1.0
   }
 
-// Handler for QAOA effects (problem-agnostic).
-
 def withStatevector { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double = {
   var qubits = 0
   var state: Array[Complex] = array(0, zero())
@@ -149,6 +146,48 @@ def withStatevector { prog: => Double / {prepare, cost, costEdge, costPredicate,
   }
   with expect {
     resume { {value} =>
+      val energy = expectValue(state) { value }
+      energy
+    }
+  }
+}
+
+def withStatevectorTraced { prog: => Double / {prepare, cost, costEdge, costPredicate, mixer, expect} } : Double / trace = {
+  var qubits = 0
+  var state: Array[Complex] = array(0, zero())
+
+  try { prog() }
+  with prepare { n =>
+    do trace("prepare " ++ n.show)
+    qubits = n
+    state = plusState(n)
+    resume(())
+  }
+  with cost { gamma =>
+    do trace("cost " ++ gamma.show)
+    applyRzAll(state, qubits, gamma)
+    resume(())
+  }
+  with costEdge { (gamma, u, v, w) =>
+    do trace("costEdge " ++ gamma.show ++ " " ++ u.show ++ " " ++ v.show ++ " " ++ w.show)
+    applyZZ(state, u, v, gamma * w)
+    resume(())
+  }
+  with costPredicate { gamma =>
+    resume { {predicate} =>
+      do trace("costPredicate " ++ gamma.show)
+      applyPredicatePhase(state, gamma) { predicate }
+      ()
+    }
+  }
+  with mixer { beta =>
+    do trace("mixer " ++ beta.show)
+    applyRxAll(state, qubits, beta)
+    resume(())
+  }
+  with expect {
+    resume { {value} =>
+      do trace("expect")
       val energy = expectValue(state) { value }
       energy
     }

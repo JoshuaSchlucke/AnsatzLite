@@ -24,11 +24,7 @@ def isBitstring(s: String, n: Int): Bool = {
 
 
 def allBitstrings(xs: List[String], n: Int): Bool = {
-  var ok = true
-  xs.foreach { s =>
-    if (not(isBitstring(s, n))) { ok = false }
-  }
-  ok
+  xs.all { s => isBitstring(s, n) }
 }
 
 

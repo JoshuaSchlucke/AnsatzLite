@@ -1,0 +1,18 @@
+module src/handlers/trace
+
+import list
+
+effect trace(msg: String): Unit
+def noTracing[R] { prog: => R / trace }: R =
+  try { prog() }
+  with trace { _ => resume(()) }
+
+def withTracing[R] { prog: => R / trace }: (R, List[String]) = {
+  var lines: List[String] = Nil()
+  val result = try { prog() }
+    with trace { msg =>
+      lines = Cons(msg, lines)
+      resume(())
+    }
+  (result, lines.reverse)
+}
